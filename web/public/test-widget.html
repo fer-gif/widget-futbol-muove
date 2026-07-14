@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prueba de Widget de Fútbol - MUOVE</title>
+  <style>
+    body {
+      background-color: #09090b;
+      color: #f4f4f5;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px 20px;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .container {
+      width: 100%;
+      max-width: 1000px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
+    }
+    h1 span {
+      color: #ff7900;
+    }
+    p.desc {
+      color: #a1a1aa;
+      font-size: 14px;
+      margin-bottom: 40px;
+    }
+    .widget-box {
+      background-color: #121214;
+      border: 1px solid #27272a;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .info-card {
+      margin-top: 30px;
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 15px 20px;
+      font-size: 12px;
+      color: #a1a1aa;
+      text-align: left;
+      line-height: 1.6;
+    }
+    code {
+      color: #ff7900;
+      background: #09090b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+  </style>
+  <!-- Inyección del script dinámico -->
+  <script id="widget-script-loader"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>MUOVE <span>WIDGET TEST</span></h1>
+    <p class="desc">Entorno de simulación seguro para verificar la integración en navegadores de terceros.</p>
+    
+    <div class="widget-box">
+      <!-- El Custom Element se inyectará aquí -->
+      <div id="widget-target">Cargando widget...</div>
+    </div>
+
+    <div class="info-card">
+      <strong>Instrucciones de Verificación:</strong><br>
+      • Esta página está sirviendo el script <code>widget.js</code> y cargando la etiqueta <code>&lt;futbol-widget&gt;</code> de forma nativa.<br>
+      • Si deseas probar un cliente específico, añade su ID en la URL de esta forma: <code>?client-id=TU_CLIENT_ID</code>.<br>
+      • Si deseas filtrar por ligas específicas: <code>?client-id=ID&leagues=LIGA1,LIGA2</code>.
+    </div>
+  </div>
+
+  <script>
+    // 1. Obtener parámetros de la URL
+    const params = new URLSearchParams(window.location.search);
+    const clientId = params.get("client-id");
+    const leagues = params.get("leagues") || "";
+
+    if (!clientId) {
+      document.getElementById("widget-target").innerHTML = `
+        <div style="color: #ef4444; font-weight: bold; padding: 20px;">
+          Error: Se requiere un "client-id" en la URL.<br>
+          <span style="color: #a1a1aa; font-size: 13px; font-weight: normal;">
+            Ejemplo: ?client-id=ID_DEL_DIARIO_EN_SUPERADMIN
+          </span>
+        </div>
+      `;
+    } else {
+      // 2. Inyectar el script del widget dinámicamente apuntando a este mismo host
+      const scriptLoader = document.getElementById("widget-script-loader");
+      scriptLoader.src = window.location.origin + "/widget.js";
+
+      scriptLoader.onload = () => {
+        console.log("Script widget.js cargado correctamente.");
+        
+        // 3. Crear e inyectar el Custom Element
+        const widgetTarget = document.getElementById("widget-target");
+        widgetTarget.innerHTML = ""; // Limpiar texto de carga
+
+        const widgetEl = document.createElement("futbol-widget");
+        widgetEl.setAttribute("client-id", clientId);
+        if (leagues) {
+          widgetEl.setAttribute("leagues", leagues);
+        }
+
+        widgetTarget.appendChild(widgetEl);
+      };
+
+      scriptLoader.onerror = () => {
+        document.getElementById("widget-target").innerHTML = `
+          <div style="color: #ef4444; font-weight: bold; padding: 20px;">
+            Error de Red: No se pudo descargar el archivo widget.js
+          </div>
+        `;
+      };
+    }
+  </script>
+</body>
+</html>
