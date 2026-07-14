@@ -1,0 +1,16 @@
+# dependencias y builds de next.js
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/tsconfig.tsbuildinfo
+
+# archivos locales de variables de entorno
+.env
+.env.local
+*.env.local
+
+# temporales de OS
+.DS_Store
+Thumbs.db
+desktop.ini
