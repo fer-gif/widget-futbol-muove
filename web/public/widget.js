@@ -466,6 +466,86 @@
             font-weight: 600;
             width: 100%;
           }
+
+          /* Responsividad para móviles y pantallas angostas */
+          @media (max-width: 640px) {
+            .widget-wrapper {
+              flex-direction: column;
+              min-height: auto;
+            }
+            .sponsor-panel {
+              width: 100%;
+              height: 60px;
+              min-height: 60px;
+              border-right: none;
+              border-bottom: 1px solid #27272a;
+              padding: 8px 16px;
+              display: flex;
+              flex-direction: row;
+              justify-content: center;
+              align-items: center;
+            }
+            .sponsor-panel img {
+              max-height: 40px;
+            }
+            .sponsor-text {
+              font-size: 16px;
+            }
+            .slider-container {
+              padding: 12px 28px;
+              gap: 12px;
+            }
+            .match-card {
+              min-width: 250px;
+              width: 250px;
+              border-radius: 8px;
+            }
+            .card-top-bar {
+              font-size: 9px;
+              padding: 4px 8px;
+            }
+            .card-sub-bar {
+              padding: 4px 8px;
+            }
+            .card-body {
+              padding: 12px 8px;
+            }
+            .team-block img {
+              width: 24px;
+              height: 24px;
+            }
+            .team-name {
+              font-size: 9px;
+            }
+            .score-display {
+              font-size: 15px;
+            }
+            .score-num {
+              padding: 1px 6px;
+              min-width: 20px;
+            }
+            .vs-text {
+              font-size: 10px;
+            }
+            .nav-btn {
+              width: 20px;
+            }
+            .nav-btn svg {
+              width: 8px;
+              height: 8px;
+              stroke-width: 4;
+            }
+            .widget-footer {
+              padding: 6px 12px;
+              justify-content: center;
+            }
+            .muove-credits span {
+              font-size: 7px;
+            }
+            .muove-credits img {
+              height: 8.5px;
+            }
+          }
         </style>
       `;
 
