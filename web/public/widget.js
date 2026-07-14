@@ -1,6 +1,6 @@
 (function () {
   // Obtener la URL base del script para saber a qué servidor Next.js llamar
-  const scriptSrc = document.currentScript ? document.currentScript.src : "http://localhost:3000/widget.js";
+  const scriptSrc = document.currentScript ? document.currentScript.src : "https://widget-futbol-muove.vercel.app/widget.js";
   const baseUrl = new URL(scriptSrc).origin;
 
   class FutbolWidget extends HTMLElement {
