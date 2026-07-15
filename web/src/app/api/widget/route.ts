@@ -148,6 +148,7 @@ export async function GET(request: NextRequest) {
         fecha_hora: p.fecha_hora,
         minuto_actual: minuto,
         liga_nombre: liga?.nombre_liga || "Torneo",
+        jornada: p.jornada || null,
         equipo_local: {
           nombre: local?.nombre_equipo || "Local",
           logo: local?.logo_url || ""

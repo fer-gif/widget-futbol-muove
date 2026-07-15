@@ -42,6 +42,7 @@ type Partido = {
   equipo_visitante?: Equipo;
   api_partido_id?: number | null;
   minuto_actual?: number | null;
+  jornada?: string | null;
 };
 
 export default function SuperAdmin() {
@@ -65,7 +66,8 @@ export default function SuperAdmin() {
     equipo_local_id: "",
     equipo_visitante_id: "",
     fecha_hora: "",
-    cliente_id: ""
+    cliente_id: "",
+    jornada: ""
   });
 
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -518,7 +520,7 @@ export default function SuperAdmin() {
   // --- ACCIONES PARTIDOS ---
   async function handleCreatePartido(e: React.FormEvent) {
     e.preventDefault();
-    const { liga_id, equipo_local_id, equipo_visitante_id, fecha_hora, cliente_id } = newPartido;
+    const { liga_id, equipo_local_id, equipo_visitante_id, fecha_hora, cliente_id, jornada } = newPartido;
     if (!liga_id || !equipo_local_id || !equipo_visitante_id || !fecha_hora) return;
 
     const { data, error } = await supabase
@@ -529,7 +531,8 @@ export default function SuperAdmin() {
         equipo_visitante_id,
         fecha_hora: new Date(fecha_hora).toISOString(),
         estado_partido: "programado",
-        cliente_id: cliente_id === "" ? null : cliente_id
+        cliente_id: cliente_id === "" ? null : cliente_id,
+        jornada: jornada === "" ? null : jornada
       }])
       .select();
 
@@ -537,7 +540,7 @@ export default function SuperAdmin() {
       alert("Error al programar partido: " + error.message);
     } else {
       fetchData();
-      setNewPartido({ liga_id: "", equipo_local_id: "", equipo_visitante_id: "", fecha_hora: "", cliente_id: "" });
+      setNewPartido({ liga_id: "", equipo_local_id: "", equipo_visitante_id: "", fecha_hora: "", cliente_id: "", jornada: "" });
     }
   }
 
@@ -1307,6 +1310,16 @@ export default function SuperAdmin() {
                       </select>
                     </div>
                     <div>
+                      <label className="block text-xs font-semibold text-zinc-400 mb-2">Jornada / Fecha (ej. Fecha 10, Semifinal)</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Fecha 10"
+                        value={newPartido.jornada || ""}
+                        onChange={e => setNewPartido({ ...newPartido, jornada: e.target.value })}
+                        className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#ff7900]/50 transition-colors"
+                      />
+                    </div>
+                    <div>
                       <label className="block text-xs font-semibold text-zinc-400 mb-2">Fecha y Hora</label>
                       <input
                         type="datetime-local"
@@ -1413,8 +1426,9 @@ export default function SuperAdmin() {
                           partidosFiltrados.map(partido => (
                             <div key={partido.id} className="bg-[#121214] border border-[#27272a] rounded-2xl p-5 hover:border-zinc-800 transition-colors">
                               <div className="flex justify-between items-center mb-3">
-                                <span className="text-xs font-bold text-zinc-500">
+                                <span className="text-xs font-bold text-zinc-500 flex items-center gap-1.5">
                                   {ligas.find(l => l.id === partido.liga_id)?.nombre_liga}
+                                  {partido.jornada && <span className="bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded text-[10px] font-semibold">{partido.jornada}</span>}
                                 </span>
                                 <span className="text-xs text-[#ff7900] font-bold">
                                   {new Date(partido.fecha_hora).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} HS

@@ -86,7 +86,9 @@ async function handleSyncMatch(request: NextRequest) {
     const minutoActual = f.fixture.status.elapsed ?? null;
     const fechaHora = f.fixture.date;
 
-    console.log(`[Sync Match] Actualizando partido ID API ${apiPartidoId} -> Local: ${golesLocal}, Visitante: ${golesVisitante}, Estado: ${estado}, Minuto: ${minutoActual}`);
+    const roundName = f.league?.round ? f.league.round.replace("Regular Season - ", "Fecha ") : null;
+
+    console.log(`[Sync Match] Actualizando partido ID API ${apiPartidoId} -> Local: ${golesLocal}, Visitante: ${golesVisitante}, Estado: ${estado}, Minuto: ${minutoActual}, Jornada: ${roundName}`);
 
     const { data: updatedData, error: updateErr } = await supabase
       .from("partidos")
@@ -95,7 +97,8 @@ async function handleSyncMatch(request: NextRequest) {
         goles_visitante: golesVisitante,
         estado_partido: estado,
         minuto_actual: minutoActual,
-        fecha_hora: fechaHora
+        fecha_hora: fechaHora,
+        jornada: roundName
       })
       .eq("api_partido_id", apiPartidoId)
       .select();

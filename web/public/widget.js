@@ -299,15 +299,23 @@
           .card-top-bar {
             background: ${secondaryColor};
             color: #000;
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: 800;
             text-align: center;
-            padding: 5px 10px;
+            padding: 6px 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1px;
+          }
+          .card-top-bar .league-name {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            width: 100%;
           }
 
           /* Sub-header oscuro */
@@ -621,7 +629,8 @@
           <div class="match-card">
             <!-- Header con color de acento -->
             <div class="card-top-bar">
-              ${p.liga_nombre}
+              <span class="league-name">${p.liga_nombre}</span>
+              ${p.jornada ? `<span style="font-size: 7.5px; font-weight: 700; opacity: 0.85; letter-spacing: 0.5px;">${p.jornada}</span>` : ""}
             </div>
             
             <!-- Sub-header oscuro -->

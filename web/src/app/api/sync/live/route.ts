@@ -108,6 +108,8 @@ async function handleSyncLive(request: NextRequest) {
             estado = "demorado";
           }
 
+          const roundName = f.league?.round ? f.league.round.replace("Regular Season - ", "Fecha ") : null;
+
           matchesToUpdate.push({
             id: dbMatchId,
             liga_id: liga.id, // Requerido para el Row-Level Security o integridad
@@ -116,7 +118,8 @@ async function handleSyncLive(request: NextRequest) {
             estado_partido: estado,
             minuto_actual: f.fixture.status.elapsed ?? null,
             fecha_hora: f.fixture.date,
-            api_partido_id: f.fixture.id
+            api_partido_id: f.fixture.id,
+            jornada: roundName
           });
         }
       }

@@ -172,6 +172,8 @@ async function handleSync(request: NextRequest) {
           estado = "demorado";
         }
 
+        const roundName = f.league?.round ? f.league.round.replace("Regular Season - ", "Fecha ") : null;
+
         const matchItem: any = {
           liga_id: ligaId,
           equipo_local_id: localUuid,
@@ -181,6 +183,7 @@ async function handleSync(request: NextRequest) {
           estado_partido: estado,
           fecha_hora: f.fixture.date,
           api_partido_id: f.fixture.id,
+          jornada: roundName
         };
 
         // Si ya existe, le inyectamos su UUID primario para que Supabase haga UPDATE en vez de INSERT

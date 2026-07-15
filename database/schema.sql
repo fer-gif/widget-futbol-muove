@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS partidos (
     estado_partido VARCHAR(50) DEFAULT 'programado' CHECK (estado_partido IN ('programado', 'en_vivo', 'finalizado')),
     fecha_hora TIMESTAMP WITH TIME ZONE NOT NULL,
     minuto_actual INTEGER,
+    jornada VARCHAR(100), -- Ronda/Fecha de fútbol (ej. Fecha 10)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

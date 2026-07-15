@@ -571,8 +571,9 @@ export default function JournalistCMS() {
                       >
                         {/* Header de la tarjeta */}
                         <div className="flex justify-between items-center mb-4">
-                          <span className="text-xs text-zinc-400 font-semibold">
+                          <span className="text-xs text-zinc-400 font-semibold flex items-center gap-2">
                             {new Date(partido.fecha_hora).toLocaleDateString("es-AR", { weekday: 'long', day: 'numeric', month: 'short' })}
+                            {partido.jornada && <span className="bg-[#27272a] text-zinc-400 px-2 py-0.5 rounded text-[10px] font-bold">{partido.jornada}</span>}
                           </span>
                           
                           <span className={`text-xs px-3 py-1 rounded-full font-bold ${matchState.styleClass}`}>
