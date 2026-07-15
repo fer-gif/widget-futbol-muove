@@ -95,7 +95,8 @@ export async function GET(request: NextRequest) {
         .select("*")
         .in("liga_id", ligasAutorizadas)
         .gte("fecha_hora", limitDate.toISOString())
-        .or(`cliente_id.eq.${clientId},cliente_id.is.null`);
+        .or(`cliente_id.eq.${clientId},cliente_id.is.null`)
+        .order("fecha_hora", { ascending: false });
 
       if (partidosError) {
         return NextResponse.json(
