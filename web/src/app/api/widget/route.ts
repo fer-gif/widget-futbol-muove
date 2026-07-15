@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   // Configurar cabeceras CORS para permitir consultas desde cualquier diario digital
   const headers = {
@@ -157,20 +159,31 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Ordenar cronológicamente (los en vivo primero, demorados, suspendidos, programados, finalizados)
+    // Ordenar cronológicamente: en vivo primero, luego programados/demorados (el más cercano primero), y luego finalizados/suspendidos (el más reciente/nuevo primero)
     const partidosOrdenados = partidosMapeados.sort((a, b) => {
-      const pesoEstado = (est: string) => {
+      const getGrupo = (est: string) => {
         if (est === "en_vivo") return 0;
-        if (est === "demorado") return 1;
-        if (est === "suspendido") return 2;
-        if (est === "programado") return 3;
-        return 4; // finalizado
+        if (est === "programado" || est === "demorado") return 1;
+        return 2; // finalizado, suspendido
       };
-      
-      const diffEstado = pesoEstado(a.estado_partido) - pesoEstado(b.estado_partido);
-      if (diffEstado !== 0) return diffEstado;
-      
-      return new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime();
+
+      const grupoA = getGrupo(a.estado_partido);
+      const grupoB = getGrupo(b.estado_partido);
+
+      if (grupoA !== grupoB) {
+        return grupoA - grupoB;
+      }
+
+      const timeA = new Date(a.fecha_hora).getTime();
+      const timeB = new Date(b.fecha_hora).getTime();
+
+      if (grupoA === 1) {
+        // Programados/demorados: ordenar de forma ascendente por fecha (el más próximo primero)
+        return timeA - timeB;
+      } else {
+        // En vivo o finalizados/suspendidos: ordenar de forma descendente por fecha (el más reciente primero)
+        return timeB - timeA;
+      }
     });
 
     return NextResponse.json(
