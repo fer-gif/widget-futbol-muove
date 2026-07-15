@@ -598,19 +598,21 @@
         const esDemorado = p.estado_partido === "demorado";
         const esSuspendido = p.estado_partido === "suspendido";
         
-        let headerStatusText = "";
+        const date = new Date(p.fecha_hora);
+        const dateText = `${date.toLocaleDateString("es-AR", { day: '2-digit', month: '2-digit' })} ${date.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' })} hs`;
+
+        let statusBadge = "";
         if (esLive) {
           const suffix = typeof p.minuto_actual === "number" || (!isNaN(p.minuto_actual) && !isNaN(parseFloat(p.minuto_actual))) ? "'" : "";
-          headerStatusText = `<span class="live-badge">VIVO - ${p.minuto_actual}${suffix}</span>`;
+          statusBadge = `<span class="live-badge">VIVO - ${p.minuto_actual}${suffix}</span>`;
         } else if (esFinalizado) {
-          headerStatusText = `<span class="finished-tag" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase;">Finalizado</span>`;
+          statusBadge = `<span class="finished-tag" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase;">Finalizado</span>`;
         } else if (esDemorado) {
-          headerStatusText = `<span class="demorado-badge" style="background: rgba(234, 179, 8, 0.1); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; animation: pulse 2s infinite;">Demorado</span>`;
+          statusBadge = `<span class="demorado-badge" style="background: rgba(234, 179, 8, 0.1); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; animation: pulse 2s infinite;">Demorado</span>`;
         } else if (esSuspendido) {
-          headerStatusText = `<span class="suspendido-badge" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase;">Suspendido</span>`;
+          statusBadge = `<span class="suspendido-badge" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase;">Suspendido</span>`;
         } else {
-          const date = new Date(p.fecha_hora);
-          headerStatusText = `${date.toLocaleDateString("es-AR", { day: '2-digit', month: '2-digit' })} ${date.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' })} hs`;
+          statusBadge = `<span class="programado-badge" style="background: rgba(113, 113, 122, 0.1); color: #a1a1aa; border: 1px solid rgba(113, 113, 122, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase;">Programado</span>`;
         }
 
         const showGoals = p.estado_partido !== "programado" || esLive;
@@ -624,7 +626,8 @@
             
             <!-- Sub-header oscuro -->
             <div class="card-sub-bar">
-              <span>${headerStatusText}</span>
+              <span>${statusBadge}</span>
+              <span style="color: #71717a; font-size: 9px; font-weight: 700; letter-spacing: 0.3px;">${dateText}</span>
             </div>
 
             <!-- Cuerpo del partido (Horizontal) -->
