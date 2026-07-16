@@ -336,6 +336,19 @@ export default function JournalistCMS() {
     }
   }
 
+  async function handleUpdateJornada(partidoId: string, jornadaVal: string) {
+    const { error } = await supabase
+      .from("partidos")
+      .update({ jornada: jornadaVal === "" ? null : jornadaVal })
+      .eq("id", partidoId);
+
+    if (error) {
+      console.error("Error al actualizar la jornada:", error);
+    } else {
+      setPartidos(partidos.map(p => p.id === partidoId ? { ...p, jornada: jornadaVal === "" ? null : jornadaVal } : p));
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#09090b] text-[#f4f4f5] font-sans flex flex-col justify-center items-center px-4 py-12">
@@ -669,6 +682,18 @@ export default function JournalistCMS() {
                                 <option value="finalizado">🏁 Finalizado</option>
                               </select>
                             </div>
+                          </div>
+
+                          {/* Fila de Edición de Jornada */}
+                          <div className="flex items-center gap-2 pt-2 border-t border-[#27272a]/30">
+                            <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap uppercase">Fecha / Jornada:</span>
+                            <input
+                              type="text"
+                              value={partido.jornada || ""}
+                              placeholder="Ej. Fecha 10, Fecha 30, Octavos"
+                              onChange={e => handleUpdateJornada(partido.id, e.target.value)}
+                              className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
+                            />
                           </div>
                           {partido.estado_partido === "finalizado" && (
                             <p className="text-[10px] text-zinc-500 text-center font-semibold pt-1">
