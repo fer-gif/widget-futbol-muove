@@ -28,6 +28,7 @@ type Partido = {
   liga_id: string;
   equipo_local?: Equipo;
   equipo_visitante?: Equipo;
+  jornada?: string | null;
 };
 
 export default function JournalistCMS() {
