@@ -559,6 +559,19 @@ export default function SuperAdmin() {
     }
   }
 
+  async function handleUpdateJornada(partidoId: string, jornadaVal: string) {
+    const { error } = await supabase
+      .from("partidos")
+      .update({ jornada: jornadaVal === "" ? null : jornadaVal })
+      .eq("id", partidoId);
+
+    if (error) {
+      console.error("Error al actualizar jornada:", error);
+    } else {
+      setPartidos(partidos.map(p => p.id === partidoId ? { ...p, jornada: jornadaVal === "" ? null : jornadaVal } : p));
+    }
+  }
+
   async function handleSyncMatchFromAPI(apiPartidoId: number) {
     try {
       const res = await fetch(`/api/sync/match?api_partido_id=${apiPartidoId}`);
@@ -1466,6 +1479,28 @@ export default function SuperAdmin() {
                                 </span>
                                 {partido.cliente_id && (
                                   <span>Asignado a: <span className="text-[#ff7900]">{clientes.find(c => c.id === partido.cliente_id)?.nombre_medio}</span></span>
+                                )}
+                              </div>
+
+                              {/* Fila de Edición de Jornada en Super Admin */}
+                              <div className="flex justify-between items-center mt-4 pt-3 border-t border-[#27272a]/65 text-xs">
+                                <div className="flex items-center gap-2 w-full sm:w-2/3">
+                                  <span className="text-[10px] text-zinc-400 font-bold uppercase whitespace-nowrap">Fecha / Jornada:</span>
+                                  <input
+                                    type="text"
+                                    value={partido.jornada || ""}
+                                    placeholder="Ej. Fecha 10"
+                                    onChange={e => handleUpdateJornada(partido.id, e.target.value)}
+                                    className="bg-[#09090b] border border-[#27272a] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold w-full max-w-[150px]"
+                                  />
+                                </div>
+                                {!partido.api_partido_id && (
+                                  <button
+                                    onClick={() => handleMoveMatchToToday(partido.id)}
+                                    className="text-[9px] text-zinc-300 hover:text-white font-bold bg-[#09090b] hover:bg-zinc-800 px-2 py-1 rounded border border-[#27272a] transition-all flex items-center gap-1 shrink-0"
+                                  >
+                                    📅 Mover a Hoy
+                                  </button>
                                 )}
                               </div>
                               
