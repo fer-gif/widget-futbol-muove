@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
         .from("partidos")
         .select("*")
         .in("liga_id", ligasAutorizadas)
-        .gte("fecha_hora", limitDate.toISOString())
+        .or(`fecha_hora.gte.${limitDate.toISOString()},fecha_hora.is.null`)
         .or(`cliente_id.eq.${clientId},cliente_id.is.null`)
         .order("fecha_hora", { ascending: false });
 
@@ -121,10 +121,10 @@ export async function GET(request: NextRequest) {
       
       let estado = p.estado_partido;
       let minuto = p.minuto_actual;
-      const start = new Date(p.fecha_hora);
+      const start = p.fecha_hora ? new Date(p.fecha_hora) : null;
 
       // Lógica de auto "en vivo" si está programado pero ya comenzó
-      if (p.estado_partido === "programado" && now >= start) {
+      if (p.estado_partido === "programado" && start && !isNaN(start.getTime()) && now >= start) {
         estado = "en_vivo";
         if (minuto === null) {
           const diffMin = Math.floor((now.getTime() - start.getTime()) / 60000);
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
         goles_local: p.goles_local,
         goles_visitante: p.goles_visitante,
         estado_partido: estado,
-        fecha_hora: p.fecha_hora,
+        fecha_hora: p.fecha_hora || null,
         minuto_actual: minuto,
         liga_nombre: liga?.nombre_liga || "Torneo",
         jornada: p.jornada || null,
@@ -175,8 +175,8 @@ export async function GET(request: NextRequest) {
         return grupoA - grupoB;
       }
 
-      const timeA = new Date(a.fecha_hora).getTime();
-      const timeB = new Date(b.fecha_hora).getTime();
+      const timeA = a.fecha_hora && !isNaN(new Date(a.fecha_hora).getTime()) ? new Date(a.fecha_hora).getTime() : 9999999999999;
+      const timeB = b.fecha_hora && !isNaN(new Date(b.fecha_hora).getTime()) ? new Date(b.fecha_hora).getTime() : 9999999999999;
 
       if (grupoA === 1) {
         // Programados/demorados: ordenar de forma ascendente por fecha (el más próximo primero)

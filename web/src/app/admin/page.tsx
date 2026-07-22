@@ -23,7 +23,7 @@ type Partido = {
   goles_local: number;
   goles_visitante: number;
   estado_partido: string;
-  fecha_hora: string;
+  fecha_hora?: string | null;
   minuto_actual: number | null;
   liga_id: string;
   equipo_local?: Equipo;
@@ -204,11 +204,20 @@ export default function JournalistCMS() {
     fetchClientsOnly();
   }
 
+  const formatForDatetimeLocal = (isoStr?: string | null) => {
+    if (!isoStr) return "";
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   // --- LÓGICA DE PROGRAMACIÓN Y TRANSMISIÓN ---
 
   function getMatchLiveStatus(partido: Partido) {
     const now = new Date();
-    const start = new Date(partido.fecha_hora);
+    const start = partido.fecha_hora ? new Date(partido.fecha_hora) : null;
+    const hasValidStart = start && !isNaN(start.getTime());
     
     if (partido.estado_partido === "finalizado") {
       return { label: "FINALIZADO", styleClass: "bg-blue-500/10 text-blue-400 border border-blue-500/20", isLive: false, minuteText: "Finalizado" };
@@ -220,7 +229,7 @@ export default function JournalistCMS() {
       return { label: "DEMORADO", styleClass: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20", isLive: false, minuteText: "Demorado" };
     }
     
-    if (partido.estado_partido === "programado" && now >= start) {
+    if (partido.estado_partido === "programado" && hasValidStart && now >= start) {
       let minuteStr = "";
       if (partido.minuto_actual !== null) {
         minuteStr = `${partido.minuto_actual}'`;
@@ -244,9 +253,9 @@ export default function JournalistCMS() {
       };
     }
     
-    const formattedTime = start.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' });
+    const formattedTime = hasValidStart ? `${start.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' })} HS` : "A CONFIRMAR";
     return { 
-      label: `PROGRAMADO - ${formattedTime} HS`, 
+      label: `PROGRAMADO - ${formattedTime}`, 
       styleClass: "bg-zinc-800 text-zinc-400 border border-zinc-700", 
       isLive: false, 
       minuteText: "Programado" 
@@ -256,7 +265,7 @@ export default function JournalistCMS() {
   async function handleCreatePartido(e: React.FormEvent) {
     e.preventDefault();
     const { liga_id, equipo_local_id, equipo_visitante_id, fecha_hora } = newPartido;
-    if (!liga_id || !equipo_local_id || !equipo_visitante_id || !fecha_hora) return;
+    if (!liga_id || !equipo_local_id || !equipo_visitante_id) return;
 
     const { data, error } = await supabase
       .from("partidos")
@@ -264,7 +273,7 @@ export default function JournalistCMS() {
         liga_id,
         equipo_local_id,
         equipo_visitante_id,
-        fecha_hora: new Date(fecha_hora).toISOString(),
+        fecha_hora: fecha_hora ? new Date(fecha_hora).toISOString() : null,
         estado_partido: "programado",
         cliente_id: selectedClientId
       }])
@@ -346,6 +355,20 @@ export default function JournalistCMS() {
       console.error("Error al actualizar la jornada:", error);
     } else {
       setPartidos(partidos.map(p => p.id === partidoId ? { ...p, jornada: jornadaVal === "" ? null : jornadaVal } : p));
+    }
+  }
+
+  async function handleUpdateFechaHora(partidoId: string, fechaHoraVal: string) {
+    const isoVal = fechaHoraVal ? new Date(fechaHoraVal).toISOString() : null;
+    const { error } = await supabase
+      .from("partidos")
+      .update({ fecha_hora: isoVal })
+      .eq("id", partidoId);
+
+    if (error) {
+      console.error("Error al actualizar fecha y hora:", error);
+    } else {
+      setPartidos(partidos.map(p => p.id === partidoId ? { ...p, fecha_hora: isoVal } : p));
     }
   }
 
@@ -517,13 +540,12 @@ export default function JournalistCMS() {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-zinc-400 mb-2">Fecha y Hora de Inicio</label>
+                        <label className="block text-xs font-semibold text-zinc-400 mb-2">Fecha y Hora (Opcional - A confirmar)</label>
                         <input
                           type="datetime-local"
                           value={newPartido.fecha_hora}
                           onChange={e => setNewPartido({ ...newPartido, fecha_hora: e.target.value })}
                           className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 transition-colors"
-                          required
                         />
                       </div>
 
@@ -586,7 +608,9 @@ export default function JournalistCMS() {
                         {/* Header de la tarjeta */}
                         <div className="flex justify-between items-center mb-4">
                           <span className="text-xs text-zinc-400 font-semibold flex items-center gap-2">
-                            {new Date(partido.fecha_hora).toLocaleDateString("es-AR", { weekday: 'long', day: 'numeric', month: 'short' })}
+                            {partido.fecha_hora && !isNaN(new Date(partido.fecha_hora).getTime())
+                              ? new Date(partido.fecha_hora).toLocaleDateString("es-AR", { weekday: 'long', day: 'numeric', month: 'short' })
+                              : "A confirmar"}
                             {partido.jornada && <span className="bg-[#27272a] text-zinc-400 px-2 py-0.5 rounded text-[10px] font-bold">{partido.jornada}</span>}
                           </span>
                           
@@ -604,10 +628,10 @@ export default function JournalistCMS() {
                             <span className="text-xs font-bold text-white truncate max-w-full">{partido.equipo_local?.nombre_equipo}</span>
                           </div>
 
-                          {/* Score */}
-                          <div className="flex items-center gap-3 text-2xl font-black text-white">
+                          {/* Marcador */}
+                          <div className="flex items-center gap-2 text-xl font-black text-white bg-[#121214] px-5 py-2 rounded-xl border border-[#27272a]">
                             <span>{partido.goles_local}</span>
-                            <span className="text-zinc-600 text-sm font-normal">vs</span>
+                            <span className="text-zinc-600 font-normal text-sm px-1">-</span>
                             <span>{partido.goles_visitante}</span>
                           </div>
 
@@ -684,16 +708,27 @@ export default function JournalistCMS() {
                             </div>
                           </div>
 
-                          {/* Fila de Edición de Jornada */}
-                          <div className="flex items-center gap-2 pt-2 border-t border-[#27272a]/30">
-                            <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap uppercase">Fecha / Jornada:</span>
-                            <input
-                              type="text"
-                              value={partido.jornada || ""}
-                              placeholder="Ej. Fecha 10, Fecha 30, Octavos"
-                              onChange={e => handleUpdateJornada(partido.id, e.target.value)}
-                              className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
-                            />
+                          {/* Fila de Edición de Jornada y Horario */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#27272a]/30">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap uppercase">Jornada:</span>
+                              <input
+                                type="text"
+                                value={partido.jornada || ""}
+                                placeholder="Ej. Fecha 10, Octavos"
+                                onChange={e => handleUpdateJornada(partido.id, e.target.value)}
+                                className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap uppercase">Horario/Fecha:</span>
+                              <input
+                                type="datetime-local"
+                                value={formatForDatetimeLocal(partido.fecha_hora)}
+                                onChange={e => handleUpdateFechaHora(partido.id, e.target.value)}
+                                className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
+                              />
+                            </div>
                           </div>
                           {partido.estado_partido === "finalizado" && (
                             <p className="text-[10px] text-zinc-500 text-center font-semibold pt-1">

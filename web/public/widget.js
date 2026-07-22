@@ -606,8 +606,13 @@
         const esDemorado = p.estado_partido === "demorado";
         const esSuspendido = p.estado_partido === "suspendido";
         
-        const date = new Date(p.fecha_hora);
-        const dateText = `${date.toLocaleDateString("es-AR", { day: '2-digit', month: '2-digit' })} ${date.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' })} hs`;
+        let dateText = "A confirmar";
+        if (p.fecha_hora) {
+          const date = new Date(p.fecha_hora);
+          if (!isNaN(date.getTime())) {
+            dateText = `${date.toLocaleDateString("es-AR", { day: '2-digit', month: '2-digit' })} ${date.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' })} hs`;
+          }
+        }
 
         let statusBadge = "";
         if (esLive) {

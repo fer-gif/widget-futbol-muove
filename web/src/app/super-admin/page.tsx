@@ -35,7 +35,7 @@ type Partido = {
   goles_local: number;
   goles_visitante: number;
   estado_partido: string;
-  fecha_hora: string;
+  fecha_hora?: string | null;
   liga_id: string;
   cliente_id: string | null;
   equipo_local?: Equipo;
@@ -517,11 +517,19 @@ export default function SuperAdmin() {
     }
   }
 
+  const formatForDatetimeLocal = (isoStr?: string | null) => {
+    if (!isoStr) return "";
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   // --- ACCIONES PARTIDOS ---
   async function handleCreatePartido(e: React.FormEvent) {
     e.preventDefault();
     const { liga_id, equipo_local_id, equipo_visitante_id, fecha_hora, cliente_id, jornada } = newPartido;
-    if (!liga_id || !equipo_local_id || !equipo_visitante_id || !fecha_hora) return;
+    if (!liga_id || !equipo_local_id || !equipo_visitante_id) return;
 
     const { data, error } = await supabase
       .from("partidos")
@@ -529,7 +537,7 @@ export default function SuperAdmin() {
         liga_id,
         equipo_local_id,
         equipo_visitante_id,
-        fecha_hora: new Date(fecha_hora).toISOString(),
+        fecha_hora: fecha_hora ? new Date(fecha_hora).toISOString() : null,
         estado_partido: "programado",
         cliente_id: cliente_id === "" ? null : cliente_id,
         jornada: jornada === "" ? null : jornada
@@ -569,6 +577,20 @@ export default function SuperAdmin() {
       console.error("Error al actualizar jornada:", error);
     } else {
       setPartidos(partidos.map(p => p.id === partidoId ? { ...p, jornada: jornadaVal === "" ? null : jornadaVal } : p));
+    }
+  }
+
+  async function handleUpdateFechaHora(partidoId: string, fechaHoraVal: string) {
+    const isoVal = fechaHoraVal ? new Date(fechaHoraVal).toISOString() : null;
+    const { error } = await supabase
+      .from("partidos")
+      .update({ fecha_hora: isoVal })
+      .eq("id", partidoId);
+
+    if (error) {
+      console.error("Error al actualizar fecha y hora:", error);
+    } else {
+      setPartidos(partidos.map(p => p.id === partidoId ? { ...p, fecha_hora: isoVal } : p));
     }
   }
 
@@ -1333,13 +1355,12 @@ export default function SuperAdmin() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-400 mb-2">Fecha y Hora</label>
+                      <label className="block text-xs font-semibold text-zinc-400 mb-2">Fecha y Hora (Opcional - A confirmar)</label>
                       <input
                         type="datetime-local"
                         value={newPartido.fecha_hora}
                         onChange={e => setNewPartido({ ...newPartido, fecha_hora: e.target.value })}
                         className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#ff7900]/50 transition-colors"
-                        required
                       />
                     </div>
                     <button
@@ -1444,7 +1465,9 @@ export default function SuperAdmin() {
                                   {partido.jornada && <span className="bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded text-[10px] font-semibold">{partido.jornada}</span>}
                                 </span>
                                 <span className="text-xs text-[#ff7900] font-bold">
-                                  {new Date(partido.fecha_hora).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} HS
+                                  {partido.fecha_hora && !isNaN(new Date(partido.fecha_hora).getTime())
+                                    ? `${new Date(partido.fecha_hora).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} HS`
+                                    : "A CONFIRMAR"}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between bg-[#09090b] p-4 rounded-xl">
@@ -1482,22 +1505,33 @@ export default function SuperAdmin() {
                                 )}
                               </div>
 
-                              {/* Fila de Edición de Jornada en Super Admin */}
-                              <div className="flex justify-between items-center mt-4 pt-3 border-t border-[#27272a]/65 text-xs">
-                                <div className="flex items-center gap-2 w-full sm:w-2/3">
-                                  <span className="text-[10px] text-zinc-400 font-bold uppercase whitespace-nowrap">Fecha / Jornada:</span>
-                                  <input
-                                    type="text"
-                                    value={partido.jornada || ""}
-                                    placeholder="Ej. Fecha 10"
-                                    onChange={e => handleUpdateJornada(partido.id, e.target.value)}
-                                    className="bg-[#09090b] border border-[#27272a] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold w-full max-w-[150px]"
-                                  />
+                              {/* Fila de Edición de Jornada y Fecha/Hora en Super Admin */}
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mt-4 pt-3 border-t border-[#27272a]/65 text-xs">
+                                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] text-zinc-400 font-bold uppercase whitespace-nowrap">Jornada:</span>
+                                    <input
+                                      type="text"
+                                      value={partido.jornada || ""}
+                                      placeholder="Ej. Fecha 10"
+                                      onChange={e => handleUpdateJornada(partido.id, e.target.value)}
+                                      className="bg-[#09090b] border border-[#27272a] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold w-[110px]"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] text-zinc-400 font-bold uppercase whitespace-nowrap">Fecha/Hora:</span>
+                                    <input
+                                      type="datetime-local"
+                                      value={formatForDatetimeLocal(partido.fecha_hora)}
+                                      onChange={e => handleUpdateFechaHora(partido.id, e.target.value)}
+                                      className="bg-[#09090b] border border-[#27272a] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
+                                    />
+                                  </div>
                                 </div>
                                 {!partido.api_partido_id && (
                                   <button
                                     onClick={() => handleMoveMatchToToday(partido.id)}
-                                    className="text-[9px] text-zinc-300 hover:text-white font-bold bg-[#09090b] hover:bg-zinc-800 px-2 py-1 rounded border border-[#27272a] transition-all flex items-center gap-1 shrink-0"
+                                    className="text-[9px] text-zinc-300 hover:text-white font-bold bg-[#09090b] hover:bg-zinc-800 px-2 py-1.5 rounded border border-[#27272a] transition-all flex items-center gap-1 shrink-0"
                                   >
                                     📅 Mover a Hoy
                                   </button>
