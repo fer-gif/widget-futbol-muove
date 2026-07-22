@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     }
 
 
-    // 4. Obtener partidos de las ligas autorizadas (filtrado a los últimos 5 días y futuros)
+    // 4. Obtener partidos de las ligas autorizadas
     let dataPartidos: any[] = [];
     if (ligasAutorizadas.length > 0) {
       const limitDate = new Date();
@@ -95,18 +95,29 @@ export async function GET(request: NextRequest) {
       const { data, error: partidosError } = await supabase
         .from("partidos")
         .select("*")
-        .in("liga_id", ligasAutorizadas)
-        .or(`fecha_hora.gte.${limitDate.toISOString()},fecha_hora.is.null`)
-        .or(`cliente_id.eq.${clientId},cliente_id.is.null`)
-        .order("fecha_hora", { ascending: false });
+        .in("liga_id", ligasAutorizadas);
 
       if (partidosError) {
+        console.error("Error al consultar partidos:", partidosError);
         return NextResponse.json(
           { success: false, error: "Error al consultar los encuentros" },
           { status: 500, headers }
         );
       }
-      dataPartidos = data || [];
+
+      // Filtrado en memoria seguro (cliente id + fechas recientes/futuras/nulas)
+      dataPartidos = (data || []).filter((p: any) => {
+        if (p.cliente_id !== null && p.cliente_id !== clientId) {
+          return false;
+        }
+        if (p.fecha_hora) {
+          const pDate = new Date(p.fecha_hora);
+          if (!isNaN(pDate.getTime()) && pDate < limitDate) {
+            return false;
+          }
+        }
+        return true;
+      });
     }
 
     const { data: dataEquipos } = await supabase.from("equipos").select("*");
