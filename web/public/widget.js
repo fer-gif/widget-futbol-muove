@@ -177,7 +177,7 @@
           }
 
 
-          /* Haz de luz de contorno en movimiento saturado sin tonos blancos */
+          /* Haz de luz de contorno en movimiento saturado con los colores de DataNE (#7F35B2 y #EF426F) */
           :host::before {
             content: '';
             position: absolute;
@@ -191,7 +191,7 @@
               transparent 120deg,
               rgba(127, 53, 178, 0.5) 170deg,
               #7F35B2 230deg,
-              #ff5757 300deg,
+              #EF426F 300deg,
               #ff80bf 345deg,
               #7F35B2 360deg
             );
@@ -200,7 +200,7 @@
             pointer-events: none;
           }
 
-          /* Resplandor ambiental exterior en violeta y rojo saturado */
+          /* Resplandor ambiental exterior en violeta y rosa frambuesa (#EF426F) */
           :host::after {
             content: '';
             position: absolute;
@@ -214,7 +214,7 @@
               transparent 140deg,
               rgba(127, 53, 178, 0.7) 190deg,
               #7F35B2 250deg,
-              #ff5757 315deg,
+              #EF426F 315deg,
               #7F35B2 360deg
             );
             animation: muove-glow-rotate 3.2s linear infinite;
@@ -223,6 +223,7 @@
             z-index: 0;
             pointer-events: none;
           }
+
 
 
           .widget-inner-box {
