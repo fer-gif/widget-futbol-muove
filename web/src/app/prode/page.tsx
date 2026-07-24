@@ -111,7 +111,7 @@ export default function ProdeDataeNePage() {
         liga_nombre: "Liga Necochense de Fútbol",
         jornada: "Fecha 5",
         estado_partido: "programado",
-        fecha_hora: new Date().toISOString(),
+        fecha_hora: "2026-07-25T15:30:00.000Z",
         goles_local: 0,
         goles_visitante: 0,
         equipo_local: { nombre: "Del Valle", logo: "/escudos_necochea/del_valle.png" },
@@ -122,7 +122,7 @@ export default function ProdeDataeNePage() {
         liga_nombre: "Liga Necochense de Fútbol",
         jornada: "Fecha 5",
         estado_partido: "programado",
-        fecha_hora: new Date().toISOString(),
+        fecha_hora: "2026-07-25T17:30:00.000Z",
         goles_local: 0,
         goles_visitante: 0,
         equipo_local: { nombre: "Rivadavia", logo: "/escudos_necochea/rivadavia.png" },
@@ -133,7 +133,7 @@ export default function ProdeDataeNePage() {
         liga_nombre: "Liga Necochense de Fútbol",
         jornada: "Fecha 5",
         estado_partido: "programado",
-        fecha_hora: new Date().toISOString(),
+        fecha_hora: "2026-07-26T15:30:00.000Z",
         goles_local: 0,
         goles_visitante: 0,
         equipo_local: { nombre: "Estación Quequén", logo: "/escudos_necochea/estacion_quequen.png" },
@@ -144,7 +144,7 @@ export default function ProdeDataeNePage() {
         liga_nombre: "Liga Necochense de Fútbol",
         jornada: "Fecha 5",
         estado_partido: "programado",
-        fecha_hora: new Date().toISOString(),
+        fecha_hora: "2026-07-26T17:30:00.000Z",
         goles_local: 0,
         goles_visitante: 0,
         equipo_local: { nombre: "Huracán", logo: "/escudos_necochea/huracan_de_necochea.png" },
@@ -523,9 +523,9 @@ export default function ProdeDataeNePage() {
                 const pred = predictions[p.id] || { local: 0, visitante: 0 };
                 return (
                   <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-[#EF426F] transition-all flex flex-col justify-between gap-4 shadow-sm">
-                    <div className="flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-3">
-                      <span>{p.liga_nombre}</span>
-                      <span className="bg-[#EF426F] text-white px-2 py-0.5 rounded font-extrabold">{p.jornada}</span>
+                    <div className="flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-3 gap-2">
+                      <span className="truncate">{p.liga_nombre}</span>
+                      <span className="bg-[#EF426F] text-white px-2 py-0.5 rounded font-extrabold shrink-0">{p.jornada}</span>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 py-2">
@@ -540,7 +540,12 @@ export default function ProdeDataeNePage() {
                         </div>
                       </div>
 
-                      <div className="font-black text-slate-400 text-xs">VS</div>
+                      <div className="flex flex-col items-center justify-center gap-1.5 shrink-0">
+                        <div className="font-black text-slate-400 text-xs">VS</div>
+                        <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#7F35B2] bg-[#7F35B2]/10 border border-[#7F35B2]/20 px-2 py-1 rounded-lg whitespace-nowrap shadow-xs">
+                          🕒 {formatFechaHora(p.fecha_hora)}
+                        </div>
+                      </div>
 
                       <div className="flex flex-col items-center gap-2 flex-1 text-center">
                         <img src={p.equipo_visitante.logo || "https://placehold.co/40/121214/fff?text=V"} alt="" className="w-14 h-14 object-contain drop-shadow" />
