@@ -1,0 +1,170 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+
+export const dynamic = "force-dynamic";
+
+const headers = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+// GET: Obtener pronósticos de un participante
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const participanteId = searchParams.get("participante-id");
+    const ligaId = searchParams.get("liga-id");
+
+    if (!participanteId) {
+      return NextResponse.json(
+        { success: false, error: "participante-id es requerido" },
+        { status: 400, headers }
+      );
+    }
+
+    // Consultar pronósticos cargados
+    let query = supabase
+      .from("prode_pronosticos")
+      .select("*, partidos!inner(id, jornada, estado_partido, fecha_hora, liga_id)")
+      .eq("participante_id", participanteId);
+
+    if (ligaId) {
+      query = query.eq("partidos.liga_id", ligaId);
+    }
+
+    const { data: pronosticos, error } = await query;
+
+    if (error) {
+      console.error("Error al consultar pronósticos:", error);
+      return NextResponse.json(
+        { success: false, error: "Error al obtener pronósticos" },
+        { status: 500, headers }
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, pronosticos: pronosticos || [] },
+      { status: 200, headers }
+    );
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500, headers }
+    );
+  }
+}
+
+// POST: Cargar o actualizar pronósticos (Guardado masivo por fecha)
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { participanteId, predictions } = body; 
+    // predictions: Array de { partidoId: string, golesLocal: number, golesVisitante: number }
+
+    if (!participanteId || !Array.isArray(predictions) || predictions.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Faltan participanteId o la lista de pronósticos" },
+        { status: 400, headers }
+      );
+    }
+
+    // 1. Validar que el participante exista
+    const { data: usuario, error: errUser } = await supabase
+      .from("prode_participantes")
+      .select("id")
+      .eq("id", participanteId)
+      .single();
+
+    if (errUser || !usuario) {
+      return NextResponse.json(
+        { success: false, error: "Participante no encontrado" },
+        { status: 404, headers }
+      );
+    }
+
+    const matchIds = predictions.map(p => p.partidoId);
+
+    // 2. Consultar el estado y horario de los partidos involucrados para validar la regla de Cierre por Fecha
+    const { data: partidosInfo, error: errPartidos } = await supabase
+      .from("partidos")
+      .select("id, jornada, estado_partido, fecha_hora, liga_id")
+      .in("id", matchIds);
+
+    if (errPartidos || !partidosInfo || partidosInfo.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Partidos no encontrados" },
+        { status: 404, headers }
+      );
+    }
+
+    // Obtener todas las jornadas a las que corresponden estos partidos
+    const jornadas = Array.from(new Set(partidosInfo.map(p => p.jornada).filter(Boolean)));
+    const ligaId = partidosInfo[0].liga_id;
+
+    // Consultar todos los partidos de esa(s) jornada(s) para verificar si arrancó el primer partido de la fecha
+    const { data: partidosJornada } = await supabase
+      .from("partidos")
+      .select("id, estado_partido, fecha_hora")
+      .eq("liga_id", ligaId)
+      .in("jornada", jornadas);
+
+    const now = new Date();
+
+    // Regla: Si el primer partido de la fecha ya comenzó o cambió de estado 'programado', la fecha está CERRADA.
+    for (const p of partidosJornada || []) {
+      const matchDate = p.fecha_hora ? new Date(p.fecha_hora) : null;
+      const yaComenzo = p.estado_partido !== "programado" || (matchDate && !isNaN(matchDate.getTime()) && now >= matchDate);
+      
+      if (yaComenzo) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            closed: true,
+            error: "La fecha se encuentra cerrada. Los pronósticos se bloquean en cuanto comienza el primer partido de la fecha." 
+          },
+          { status: 403, headers }
+        );
+      }
+    }
+
+    // 3. Upsert de los pronósticos enviados
+    const rowsToUpsert = predictions.map(p => ({
+      participante_id: participanteId,
+      partido_id: p.partidoId,
+      goles_local_pred: Math.max(0, parseInt(p.golesLocal) || 0),
+      goles_visitante_pred: Math.max(0, parseInt(p.golesVisitante) || 0),
+    }));
+
+    const { data: guardados, error: errUpsert } = await supabase
+      .from("prode_pronosticos")
+      .upsert(rowsToUpsert, { onConflict: "participante_id,partido_id" })
+      .select();
+
+    if (errUpsert) {
+      console.error("Error al guardar pronósticos:", errUpsert);
+      return NextResponse.json(
+        { success: false, error: "Error al registrar tus pronósticos" },
+        { status: 500, headers }
+      );
+    }
+
+    return NextResponse.json(
+      { 
+        success: true, 
+        message: "¡Pronósticos guardados con éxito!",
+        guardados 
+      },
+      { status: 200, headers }
+    );
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500, headers }
+    );
+  }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers });
+}

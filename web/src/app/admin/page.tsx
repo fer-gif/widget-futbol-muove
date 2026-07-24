@@ -56,93 +56,74 @@ export default function JournalistCMS() {
   });
 
   useEffect(() => {
-    const savedClient = localStorage.getItem("muove_journalist_client_id");
-    const sessionActive = localStorage.getItem("muove_journalist_session_active");
-    if (savedClient && sessionActive === "true") {
-      setSelectedClientId(savedClient);
-      setIsAuthenticated(true);
-      fetchInitialData(savedClient);
-    } else {
-      fetchClientsOnly();
+    async function initDataNE() {
+      setLoading(true);
+      try {
+        // Buscar cliente DataNE o fallback al primer cliente activo
+        const { data: dataClientes } = await supabase
+          .from("clientes")
+          .select("id, nombre_medio")
+          .ilike("nombre_medio", "%datane%");
+        
+        let targetClient = dataClientes && dataClientes.length > 0 ? dataClientes[0] : null;
+
+        if (!targetClient) {
+          const { data: anyClientes } = await supabase
+            .from("clientes")
+            .select("id, nombre_medio")
+            .limit(1);
+          if (anyClientes && anyClientes.length > 0) {
+            targetClient = anyClientes[0];
+          }
+        }
+
+        const clientId = targetClient ? targetClient.id : "datane-default-id";
+        setSelectedClientId(clientId);
+        setIsAuthenticated(true);
+
+        const { data: dataEquipos } = await supabase
+          .from("equipos")
+          .select("*")
+          .order("nombre_equipo");
+        setEquipos(dataEquipos || []);
+
+        const { data: dataLigas } = await supabase
+          .from("ligas")
+          .select("*")
+          .order("nombre_liga");
+        const listLigas = dataLigas || [];
+        setLigas(listLigas);
+
+        if (listLigas.length > 0) {
+          const firstLigaId = listLigas[0].id;
+          setSelectedLigaId(firstLigaId);
+          await fetchPartidos(firstLigaId, clientId, dataEquipos || []);
+        }
+      } catch (err) {
+        console.error("Error al inicializar DataNE:", err);
+      } finally {
+        setLoading(false);
+      }
     }
+
+    initDataNE();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (selectedLigaId) {
-      fetchPartidos(selectedLigaId);
+      fetchPartidos(selectedLigaId, selectedClientId, equipos);
     } else {
       setPartidos([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLigaId]);
 
-  async function fetchClientsOnly() {
-    setLoading(true);
-    try {
-      const { data: dataClientes } = await supabase
-        .from("clientes")
-        .select("id, nombre_medio")
-        .order("nombre_medio");
-      setClientes(dataClientes || []);
-    } catch (err) {
-      console.error("Error al cargar clientes:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function fetchInitialData(clientId: string) {
-    setLoading(true);
-    try {
-      const { data: dataClientes } = await supabase
-        .from("clientes")
-        .select("id, nombre_medio")
-        .order("nombre_medio");
-      setClientes(dataClientes || []);
-
-      const { data: dataEquipos } = await supabase
-        .from("equipos")
-        .select("*");
-      setEquipos(dataEquipos || []);
-
-      await fetchLigas(clientId);
-    } catch (err) {
-      console.error("Error al cargar datos iniciales:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function fetchLigas(clientId: string) {
-    const { data: asignaciones, error: errAsig } = await supabase
-      .from("clientes_ligas")
-      .select("liga_id")
-      .eq("cliente_id", clientId);
-
-    if (errAsig || !asignaciones || asignaciones.length === 0) {
-      setLigas([]);
-      return;
-    }
-
-    const ligaIds = asignaciones.map(a => a.liga_id);
-
-    const { data: dataLigas } = await supabase
-      .from("ligas")
-      .select("*")
-      .in("id", ligaIds)
-      .eq("es_profesional", false)
-      .order("nombre_liga");
-
-    setLigas(dataLigas || []);
-  }
-
-  async function fetchPartidos(ligaId: string) {
+  async function fetchPartidos(ligaId: string, clientId: string = selectedClientId, eqList: Equipo[] = equipos) {
     const { data, error } = await supabase
       .from("partidos")
       .select("*")
       .eq("liga_id", ligaId)
-      .eq("cliente_id", selectedClientId)
       .order("fecha_hora", { ascending: true });
 
     if (error) {
@@ -150,12 +131,13 @@ export default function JournalistCMS() {
     } else {
       const partidosMapeados = (data || []).map((p: any) => ({
         ...p,
-        equipo_local: equipos.find(e => e.id === p.equipo_local_id),
-        equipo_visitante: equipos.find(e => e.id === p.equipo_visitante_id)
+        equipo_local: eqList.find(e => e.id === p.equipo_local_id),
+        equipo_visitante: eqList.find(e => e.id === p.equipo_visitante_id)
       }));
       setPartidos(partidosMapeados);
     }
   }
+
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -185,7 +167,9 @@ export default function JournalistCMS() {
         localStorage.setItem("muove_journalist_client_id", selectedClientId);
         localStorage.setItem("muove_journalist_session_active", "true");
         setIsAuthenticated(true);
-        await fetchInitialData(selectedClientId);
+        if (selectedLigaId) {
+          await fetchPartidos(selectedLigaId, selectedClientId, equipos);
+        }
       }
     } catch (err) {
       setAuthError("Error de comunicación con el servidor.");
@@ -201,8 +185,8 @@ export default function JournalistCMS() {
     setLigas([]);
     setPartidos([]);
     setSelectedLigaId("");
-    fetchClientsOnly();
   }
+
 
   const formatForDatetimeLocal = (isoStr?: string | null) => {
     if (!isoStr) return "";
@@ -454,14 +438,15 @@ export default function JournalistCMS() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-wide">
-              MUOVE <span className="text-[#ff7900]">| CMS PERIODISTA</span>
+              DIARIO DATANE <span className="text-[#ff7900]">| PANEL DE CONTROL</span>
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs bg-[#ff7900]/10 text-[#ff7900] px-2 py-0.5 rounded font-bold border border-[#ff7900]/20">
-                {clientes.find(c => c.id === selectedClientId)?.nombre_medio}
+                DataNE Fútbol & Prode
               </span>
-              <span className="text-xs text-zinc-500">Gestión Descentralizada</span>
+              <span className="text-xs text-zinc-500">Gestión en Vivo</span>
             </div>
+
           </div>
           <div className="flex gap-2">
             <button

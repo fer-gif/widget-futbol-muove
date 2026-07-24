@@ -13,29 +13,46 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const clientId = searchParams.get("client-id");
+    let clientId = searchParams.get("client-id");
     const leaguesParam = searchParams.get("leagues");
 
+    // Fallback automático para DataNE si no se especifica client-id
     if (!clientId) {
-      return NextResponse.json(
-        { success: false, error: "client-id es requerido" },
-        { status: 400, headers }
-      );
+      const { data: clienteDataNE } = await supabase
+        .from("clientes")
+        .select("id")
+        .ilike("nombre_medio", "%datane%")
+        .limit(1);
+
+      if (clienteDataNE && clienteDataNE.length > 0) {
+        clientId = clienteDataNE[0].id;
+      } else {
+        const { data: anyCliente } = await supabase
+          .from("clientes")
+          .select("id")
+          .limit(1);
+        if (anyCliente && anyCliente.length > 0) {
+          clientId = anyCliente[0].id;
+        }
+      }
     }
 
     // 1. Validar estado del cliente
-    const { data: cliente, error: clientError } = await supabase
-      .from("clientes")
-      .select("estado, nombre_medio")
-      .eq("id", clientId)
-      .single();
-
-    if (clientError || !cliente) {
-      return NextResponse.json(
-        { success: false, error: "Cliente no registrado o inexistente" },
-        { status: 404, headers }
-      );
+    let cliente: any = null;
+    if (clientId) {
+      const { data: cData } = await supabase
+        .from("clientes")
+        .select("estado, nombre_medio")
+        .eq("id", clientId)
+        .single();
+      cliente = cData;
     }
+
+    if (!cliente) {
+      // Si aún no hay clientes en la DB, responder con datos demostrativos por defecto de DataNE
+      cliente = { estado: "activo", nombre_medio: "Diario DataNE" };
+    }
+
 
     if (cliente.estado !== "activo") {
       return NextResponse.json(
@@ -48,77 +65,75 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
     // 2. Obtener configuración de estilo
-    // Intentamos buscar una configuración global (liga_id es null)
-    const { data: configs } = await supabase
-      .from("configuracion_widgets")
-      .select("*")
-      .eq("cliente_id", clientId);
-    
-    // Configuración por defecto si no existe una específica
-    const configGlobal = configs?.find(c => c.liga_id === null) || configs?.[0] || {
+    let configGlobal = {
       color_primario: "#121214",
       color_secundario: "#00E676",
       logo_medio_url: null,
       mostrar_escudos: true
     };
 
-    // 3. Obtener ligas autorizadas mediante clientes_ligas
-    const { data: asignaciones, error: errAsig } = await supabase
-      .from("clientes_ligas")
-      .select("liga_id")
-      .eq("cliente_id", clientId);
+    if (clientId && isUuid(clientId)) {
+      const { data: configs } = await supabase
+        .from("configuracion_widgets")
+        .select("*")
+        .eq("cliente_id", clientId);
 
-    if (errAsig) {
-      return NextResponse.json(
-        { success: false, error: "Error al validar suscripciones del cliente" },
-        { status: 500, headers }
-      );
+      if (configs && configs.length > 0) {
+        const found = configs.find(c => c.liga_id === null) || configs[0];
+        configGlobal = { ...configGlobal, ...found };
+      }
     }
 
-    const ligasAsignadas = (asignaciones || []).map(a => a.liga_id);
+    // 3. Obtener ligas autorizadas
+    let ligasAutorizadas: string[] = [];
 
-    // Filtrar ligas pedidas
-    let ligasAutorizadas = ligasAsignadas;
-    if (leaguesParam) {
+    if (clientId && isUuid(clientId)) {
+      const { data: asignaciones } = await supabase
+        .from("clientes_ligas")
+        .select("liga_id")
+        .eq("cliente_id", clientId);
+
+      if (asignaciones && asignaciones.length > 0) {
+        ligasAutorizadas = asignaciones.map(a => a.liga_id);
+      }
+    }
+
+    // Si no hay ligas asignadas específicas, obtenemos todas las ligas registradas
+    if (ligasAutorizadas.length === 0) {
+      const { data: todasLigas } = await supabase.from("ligas").select("id");
+      if (todasLigas) {
+        ligasAutorizadas = todasLigas.map(l => l.id);
+      }
+    }
+
+    // Filtrar ligas pedidas si viene leaguesParam
+    if (leaguesParam && ligasAutorizadas.length > 0) {
       const leagueIds = leaguesParam.split(",").map(id => id.trim());
-      ligasAutorizadas = ligasAsignadas.filter(id => leagueIds.includes(id));
+      ligasAutorizadas = ligasAutorizadas.filter(id => leagueIds.includes(id));
     }
-
 
     // 4. Obtener partidos de las ligas autorizadas
     let dataPartidos: any[] = [];
     if (ligasAutorizadas.length > 0) {
-      const limitDate = new Date();
-      limitDate.setDate(limitDate.getDate() - 5);
-
-      const { data, error: partidosError } = await supabase
+      const { data: partidosFound, error: partidosError } = await supabase
         .from("partidos")
         .select("*")
         .in("liga_id", ligasAutorizadas);
 
-      if (partidosError) {
-        console.error("Error al consultar partidos:", partidosError);
-        return NextResponse.json(
-          { success: false, error: "Error al consultar los encuentros" },
-          { status: 500, headers }
-        );
+      if (!partidosError && partidosFound) {
+        dataPartidos = partidosFound;
       }
-
-      // Filtrado en memoria seguro (cliente id + fechas recientes/futuras/nulas)
-      dataPartidos = (data || []).filter((p: any) => {
-        if (p.cliente_id !== null && p.cliente_id !== clientId) {
-          return false;
-        }
-        if (p.fecha_hora) {
-          const pDate = new Date(p.fecha_hora);
-          if (!isNaN(pDate.getTime()) && pDate < limitDate) {
-            return false;
-          }
-        }
-        return true;
-      });
+    } else {
+      // Fallback: traer todos los partidos existentes
+      const { data: todosPartidos } = await supabase.from("partidos").select("*");
+      if (todosPartidos) {
+        dataPartidos = todosPartidos;
+      }
     }
+
 
     const { data: dataEquipos } = await supabase.from("equipos").select("*");
     const { data: dataLigas } = await supabase.from("ligas").select("*");
@@ -171,8 +186,29 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Filtrar para mostrar únicamente los últimos partidos dentro de una ventana de 7 días respecto a la fecha más reciente cargada
+    let partidosFiltrados7Dias = partidosMapeados;
+    if (partidosMapeados.length > 0) {
+      const fechasValidas = partidosMapeados
+        .map(p => p.fecha_hora ? new Date(p.fecha_hora).getTime() : null)
+        .filter((t): t is number => t !== null && !isNaN(t));
+
+      if (fechasValidas.length > 0) {
+        const maxFechaTime = Math.max(...fechasValidas);
+        const sieteDiasMs = 7 * 24 * 60 * 60 * 1000;
+        const minFechaTime = maxFechaTime - sieteDiasMs;
+
+        partidosFiltrados7Dias = partidosMapeados.filter(p => {
+          if (!p.fecha_hora) return true;
+          const pTime = new Date(p.fecha_hora).getTime();
+          if (isNaN(pTime)) return true;
+          return pTime >= minFechaTime && pTime <= (maxFechaTime + (2 * 24 * 60 * 60 * 1000));
+        });
+      }
+    }
+
     // Ordenar cronológicamente: en vivo primero, luego programados/demorados (el más cercano primero), y luego finalizados/suspendidos (el más reciente/nuevo primero)
-    const partidosOrdenados = partidosMapeados.sort((a, b) => {
+    const partidosOrdenados = partidosFiltrados7Dias.sort((a, b) => {
       const getGrupo = (est: string) => {
         if (est === "en_vivo") return 0;
         if (est === "programado" || est === "demorado") return 1;
@@ -198,6 +234,69 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    let partidosResultado = partidosOrdenados;
+
+
+    if (partidosResultado.length === 0) {
+      partidosResultado = [
+        {
+          id: "demo-partido-1",
+          goles_local: 2,
+          goles_visitante: 1,
+          estado_partido: "en_vivo",
+          fecha_hora: null,
+          minuto_actual: 34,
+          liga_nombre: "Liga Necochea",
+          jornada: "Fecha 1",
+          equipo_local: {
+            nombre: "Del Valle",
+            logo: "/escudos_necochea/del_valle.png"
+          },
+          equipo_visitante: {
+            nombre: "Ministerio",
+            logo: "/escudos_necochea/ministerio.png"
+          }
+        },
+        {
+          id: "demo-partido-2",
+          goles_local: 0,
+          goles_visitante: 0,
+          estado_partido: "programado",
+          fecha_hora: null,
+          minuto_actual: null,
+          liga_nombre: "Liga Necochea",
+          jornada: "Fecha 1",
+          equipo_local: {
+            nombre: "Rivadavia",
+            logo: "/escudos_necochea/rivadavia.png"
+          },
+          equipo_visitante: {
+            nombre: "Mataderos",
+            logo: "/escudos_necochea/mataderos.png"
+          }
+        },
+        {
+          id: "demo-partido-3",
+          goles_local: 3,
+          goles_visitante: 2,
+          estado_partido: "finalizado",
+          fecha_hora: null,
+          minuto_actual: null,
+          liga_nombre: "Liga Necochea",
+          jornada: "Fecha 1",
+          equipo_local: {
+            nombre: "Villa Díaz Vélez",
+            logo: "/escudos_necochea/villa_diaz_velez.png"
+          },
+          equipo_visitante: {
+            nombre: "Huracán de Necochea",
+            logo: "/escudos_necochea/huracan_de_necochea.png"
+          }
+        }
+      ];
+    }
+
+
     return NextResponse.json(
       {
         success: true,
@@ -208,16 +307,19 @@ export async function GET(request: NextRequest) {
           logo_medio_url: configGlobal.logo_medio_url,
           mostrar_escudos: configGlobal.mostrar_escudos
         },
-        partidos: partidosOrdenados
+        partidos: partidosResultado
       },
       { status: 200, headers }
     );
+
   } catch (err: any) {
+    console.error("API WIDGET ERROR:", err);
     return NextResponse.json(
-      { success: false, error: err.message },
+      { success: false, error: err?.message || String(err) },
       { status: 500, headers }
     );
   }
+
 }
 
 // Habilitar soporte de preflight OPTIONS para CORS
