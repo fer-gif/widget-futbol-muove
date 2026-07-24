@@ -395,69 +395,36 @@ export default function ProdeDataeNePage() {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 font-sans flex flex-col justify-between">
-      {/* Top Header con Branding Oficial de DataeNe */}
-      <header className="border-b border-slate-200 bg-white sticky top-0 z-40 px-4 py-3 shadow-sm">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img
-              src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png"
-              alt="Data eNe"
-              className="h-9 w-auto object-contain"
-            />
-          </div>
-
-          {/* User Session Bar */}
-          <div>
-            {user ? (
-              <div className="flex items-center gap-3 bg-slate-100 border border-slate-200 px-3.5 py-1.5 rounded-xl text-xs">
-                <div>
-                  <div className="font-extrabold text-slate-900">👤 {user.nombre}</div>
-                  <div className="text-[#EF426F] font-black">{user.puntos_totales} Puntos</div>
-                </div>
-                <button
-                  onClick={() => {
-                    setUser(null);
-                    localStorage.removeItem(`prode_user_${clientId}`);
-                  }}
-                  className="text-slate-500 hover:text-[#EF426F] text-xs font-semibold ml-2"
-                >
-                  Salir
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setShowAuthModal(true);
-                  setAuthMode("login");
-                }}
-                className="bg-[#EF426F] hover:bg-[#d83760] text-white text-xs font-extrabold py-2.5 px-4 rounded transition-all shadow-sm"
-              >
-                🔑 Ingresar / Registrarme
-              </button>
-            )}
-          </div>
+      {/* Top Header con Logo Oficial de DataeNe */}
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-40 px-4 py-2.5 shadow-sm">
+        <div className="max-w-5xl mx-auto flex items-center justify-center">
+          <img
+            src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png"
+            alt="Data eNe"
+            className="h-8 w-auto object-contain"
+          />
         </div>
       </header>
 
-      {/* Hero Sub-Header de DataeNe */}
-      <div className="bg-slate-50 border-b border-slate-200 py-6 px-4 text-center">
-        <div className="max-w-3xl mx-auto space-y-2">
-          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+      {/* Hero Sub-Header de DataeNe compacto */}
+      <div className="bg-slate-50 border-b border-slate-200 py-4 px-4 text-center">
+        <div className="max-w-3xl mx-auto space-y-1">
+          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
             El PRODE de la <span className="text-[#EF426F]">Liga de Necochea</span>
           </h1>
-          <p className="text-xs text-slate-600 max-w-xl mx-auto">
-            Demostrá cuánto sabés del fútbol local. Arriesgá tus pronósticos cada fecha, sumá puntos y competí contra tus amigos en <strong className="text-slate-900">Data eNe</strong>.
+          <p className="text-[11px] text-slate-600 max-w-xl mx-auto">
+            Demostrá cuánto sabés del fútbol local. Arriesgá tus pronósticos cada fecha y competí en <strong className="text-slate-900">Data eNe</strong>.
           </p>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <main className="max-w-5xl mx-auto w-full px-4 py-8 flex-grow">
-        {/* Navigation Tabs (Barra Violeta #7F35B2 con activo en Rosa #EF426F idéntico al sitio Data eNe) */}
-        <div className="flex bg-[#7F35B2] p-1 mb-8 max-w-2xl mx-auto shadow-md rounded">
+      <main className="max-w-5xl mx-auto w-full px-4 py-4 flex-grow">
+        {/* Navigation Tabs (Barra Violeta #7F35B2 con activo en Rosa #EF426F idéntico a Data eNe) */}
+        <div className="flex bg-[#7F35B2] p-1 mb-3 max-w-2xl mx-auto shadow-md rounded">
           <button
             onClick={() => setActiveTab("fixture")}
-            className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 py-2.5 px-3 text-[11px] font-black uppercase tracking-wider transition-all ${
               activeTab === "fixture" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -465,7 +432,7 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("ranking")}
-            className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 py-2.5 px-3 text-[11px] font-black uppercase tracking-wider transition-all ${
               activeTab === "ranking" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -473,13 +440,45 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("amigos")}
-            className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 py-2.5 px-3 text-[11px] font-black uppercase tracking-wider transition-all ${
               activeTab === "amigos" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
             👥 Ligas de Amigos
           </button>
         </div>
+
+        {/* User Session Bar DEBAJO del menú de navegación (Compacto) */}
+        <div className="flex justify-center mb-6">
+          {user ? (
+            <div className="flex items-center gap-3 bg-slate-100 border border-slate-200 px-4 py-2 rounded-xl text-xs shadow-sm">
+              <div>
+                <span className="font-extrabold text-slate-900">👤 {user.nombre}</span>
+                <span className="text-[#EF426F] font-black ml-2">({user.puntos_totales} Puntos)</span>
+              </div>
+              <button
+                onClick={() => {
+                  setUser(null);
+                  localStorage.removeItem(`prode_user_${clientId}`);
+                }}
+                className="text-slate-500 hover:text-[#EF426F] text-xs font-semibold ml-2 underline"
+              >
+                Salir
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setShowAuthModal(true);
+                setAuthMode("login");
+              }}
+              className="bg-[#EF426F] hover:bg-[#d83760] text-white text-xs font-extrabold py-2 px-5 rounded-lg transition-all shadow-sm flex items-center gap-2"
+            >
+              🔑 Ingresar / Registrarme
+            </button>
+          )}
+        </div>
+
 
         {/* TAB 1: FIXTURE & VOTOS */}
         {activeTab === "fixture" && (
