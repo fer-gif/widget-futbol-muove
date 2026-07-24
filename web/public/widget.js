@@ -239,10 +239,6 @@
             box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.15), inset 0 -3px 10px rgba(0, 0, 0, 0.85);
           }
 
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-          }
           * { box-sizing: border-box; margin: 0; padding: 0; }
           
           .widget-wrapper {
@@ -327,8 +323,8 @@
             justify-content: space-between;
             align-items: center;
             padding: 6px 12px;
-            color: #71717a;
-            font-size: 9px;
+            color: #a1a1aa;
+            font-size: 9.5px;
             font-weight: 700;
           }
           
@@ -413,12 +409,14 @@
         const esLive = p.estado_partido === "en_vivo";
         const esFinalizado = p.estado_partido === "finalizado";
         const showGoals = p.estado_partido !== "programado" || esLive;
+        const fechaHoraText = this.formatFechaHora(p.fecha_hora);
 
         return `
           <div class="match-card">
             <div class="card-top-bar">${p.liga_nombre}</div>
             <div class="card-sub-bar">
-              <span>${esLive ? `<span style="color:#22c55e; font-weight:bold;">VIVO</span>` : esFinalizado ? "FINALIZADO" : "PROGRAMADO"}</span>
+              <span>${esLive ? `<span style="color:#22c55e; font-weight:bold;">● EN VIVO</span>` : esFinalizado ? "FINALIZADO" : `📅 ${fechaHoraText}`}</span>
+              ${p.jornada ? `<span style="color:#EF426F; font-weight:800;">${p.jornada}</span>` : ""}
             </div>
             <div class="card-body">
               <div class="team-block">
