@@ -481,11 +481,11 @@ export default function ProdeDataeNePage() {
       </div>
 
       <main className="max-w-5xl mx-auto w-full px-4 py-4 flex-grow">
-        {/* Navigation Tabs Bar con 4 Pestañas Oficiales */}
-        <div className="flex bg-[#7F35B2] p-1 mb-3 max-w-4xl mx-auto shadow-md rounded">
+        {/* Navigation Tabs Bar con 4 Pestañas Oficiales y Scroll Responsive en Móvil */}
+        <div className="flex bg-[#7F35B2] p-1 mb-3 max-w-4xl mx-auto shadow-md rounded overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("fixture")}
-            className={`flex-1 py-2.5 px-2 text-[11px] font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 min-w-[90px] py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === "fixture" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -493,7 +493,7 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("ranking")}
-            className={`flex-1 py-2.5 px-2 text-[11px] font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 min-w-[110px] py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === "ranking" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -501,7 +501,7 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("amigos")}
-            className={`flex-1 py-2.5 px-2 text-[11px] font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 min-w-[100px] py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === "amigos" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -509,7 +509,7 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("info")}
-            className={`flex-1 py-2.5 px-2 text-[11px] font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 min-w-[100px] py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === "info" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -551,14 +551,14 @@ export default function ProdeDataeNePage() {
         {activeTab === "fixture" && (
           <div className="space-y-6">
             {jornadas.length > 0 && (
-              <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm flex-wrap gap-2">
                 <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Jornada Activa:</span>
-                <div className="flex gap-2 overflow-x-auto">
+                <div className="flex gap-2 overflow-x-auto max-w-full">
                   {jornadas.map((j) => (
                     <button
                       key={j}
                       onClick={() => setSelectedJornada(j)}
-                      className={`px-4 py-2 rounded text-xs font-black uppercase transition-colors ${
+                      className={`px-4 py-2 rounded text-xs font-black uppercase transition-colors shrink-0 ${
                         selectedJornada === j ? "bg-[#EF426F] text-white shadow-sm" : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
                       }`}
                     >
@@ -585,39 +585,54 @@ export default function ProdeDataeNePage() {
               {filteredPartidos.map((p) => {
                 const pred = predictions[p.id] || { local: 0, visitante: 0 };
                 return (
-                  <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-[#EF426F] transition-all flex flex-col justify-between gap-4 shadow-sm">
-                    <div className="flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-3 gap-2">
-                      <span className="truncate">{p.liga_nombre}</span>
-                      <span className="bg-[#EF426F] text-white px-2 py-0.5 rounded font-extrabold shrink-0">{p.jornada}</span>
+                  <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 hover:border-[#EF426F] transition-all flex flex-col justify-between gap-3 shadow-sm">
+                    {/* Header con Liga, Día/Hora y Jornada */}
+                    <div className="flex justify-between items-center text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2.5 gap-2 flex-wrap">
+                      <span className="truncate max-w-[140px] sm:max-w-none">{p.liga_nombre}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-extrabold text-[10px]">
+                          🕒 {formatFechaHora(p.fecha_hora)}
+                        </span>
+                        <span className="bg-[#EF426F] text-white px-2 py-0.5 rounded font-extrabold text-[10px]">
+                          {p.jornada}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-4 py-2">
-                      <div className="flex flex-col items-center gap-2 flex-1 text-center">
-                        <img src={p.equipo_local.logo || "https://placehold.co/40/121214/fff?text=L"} alt="" className="w-14 h-14 object-contain drop-shadow" />
-                        <span className="text-xs font-black text-slate-900 uppercase tracking-wide line-clamp-1">{p.equipo_local.nombre}</span>
+                    {/* Equipos y Controles de Goles en Grid Relativo 3 - 1 - 3 */}
+                    <div className="grid grid-cols-7 items-center gap-1 sm:gap-3 py-2">
+                      {/* Local Team */}
+                      <div className="col-span-3 flex flex-col items-center gap-1.5 text-center">
+                        <img src={p.equipo_local.logo || "https://placehold.co/40/121214/fff?text=L"} alt="" className="w-12 h-12 sm:w-14 sm:h-14 object-contain drop-shadow" />
+                        <span className="text-[11px] sm:text-xs font-black text-slate-900 uppercase tracking-tight line-clamp-2 leading-tight h-7 flex items-center justify-center">
+                          {p.equipo_local.nombre}
+                        </span>
                         
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
-                          <button onClick={() => handleScoreChange(p.id, "local", -1)} className="w-7 h-7 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded transition-colors">-</button>
-                          <span className="w-6 text-center font-black text-sm text-[#EF426F]">{pred.local}</span>
-                          <button onClick={() => handleScoreChange(p.id, "local", 1)} className="w-7 h-7 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded transition-colors">+</button>
+                        <div className="flex items-center gap-1 sm:gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl">
+                          <button onClick={() => handleScoreChange(p.id, "local", -1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">-</button>
+                          <span className="w-5 sm:w-6 text-center font-black text-sm sm:text-base text-[#EF426F]">{pred.local}</span>
+                          <button onClick={() => handleScoreChange(p.id, "local", 1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">+</button>
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-center justify-center gap-1.5 shrink-0">
-                        <div className="font-black text-slate-400 text-xs">VS</div>
-                        <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#7F35B2] bg-[#7F35B2]/10 border border-[#7F35B2]/20 px-2 py-1 rounded-lg whitespace-nowrap shadow-xs">
-                          🕒 {formatFechaHora(p.fecha_hora)}
-                        </div>
+                      {/* VS Divider */}
+                      <div className="col-span-1 flex flex-col items-center justify-center text-center">
+                        <span className="font-black text-slate-400 text-xs sm:text-sm bg-slate-100 px-2 py-1 rounded-full border border-slate-200 shadow-xs">
+                          VS
+                        </span>
                       </div>
 
-                      <div className="flex flex-col items-center gap-2 flex-1 text-center">
-                        <img src={p.equipo_visitante.logo || "https://placehold.co/40/121214/fff?text=V"} alt="" className="w-14 h-14 object-contain drop-shadow" />
-                        <span className="text-xs font-black text-slate-900 uppercase tracking-wide line-clamp-1">{p.equipo_visitante.nombre}</span>
+                      {/* Visitante Team */}
+                      <div className="col-span-3 flex flex-col items-center gap-1.5 text-center">
+                        <img src={p.equipo_visitante.logo || "https://placehold.co/40/121214/fff?text=V"} alt="" className="w-12 h-12 sm:w-14 sm:h-14 object-contain drop-shadow" />
+                        <span className="text-[11px] sm:text-xs font-black text-slate-900 uppercase tracking-tight line-clamp-2 leading-tight h-7 flex items-center justify-center">
+                          {p.equipo_visitante.nombre}
+                        </span>
                         
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
-                          <button onClick={() => handleScoreChange(p.id, "visitante", -1)} className="w-7 h-7 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded transition-colors">-</button>
-                          <span className="w-6 text-center font-black text-sm text-[#EF426F]">{pred.visitante}</span>
-                          <button onClick={() => handleScoreChange(p.id, "visitante", 1)} className="w-7 h-7 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded transition-colors">+</button>
+                        <div className="flex items-center gap-1 sm:gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl">
+                          <button onClick={() => handleScoreChange(p.id, "visitante", -1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">-</button>
+                          <span className="w-5 sm:w-6 text-center font-black text-sm sm:text-base text-[#EF426F]">{pred.visitante}</span>
+                          <button onClick={() => handleScoreChange(p.id, "visitante", 1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">+</button>
                         </div>
                       </div>
                     </div>
@@ -626,10 +641,10 @@ export default function ProdeDataeNePage() {
               })}
             </div>
 
-            <div className="sticky bottom-6 flex justify-center pt-4">
+            <div className="sticky bottom-4 z-30 flex justify-center pt-2 px-2">
               <button
                 onClick={handleSavePredictions}
-                className="bg-[#EF426F] hover:bg-[#d83760] text-white font-black text-sm py-4 px-8 rounded-xl shadow-lg transition-all hover:scale-105"
+                className="w-full max-w-md bg-[#EF426F] hover:bg-[#d83760] text-white font-black text-xs sm:text-sm py-3.5 px-6 rounded-2xl shadow-xl transition-all border border-white/20 active:scale-95"
               >
                 💾 Guardar mis pronósticos de la fecha
               </button>
