@@ -139,9 +139,22 @@
       }
     }
 
-    resetAutoplayTimer() {
-      this.stopAutoplay();
-      this.startAutoplay();
+    formatFechaHora(fechaHoraStr) {
+      if (!fechaHoraStr) return "Fecha a confirmar";
+      let d = new Date(fechaHoraStr);
+      if (isNaN(d.getTime())) {
+        d = new Date(String(fechaHoraStr).replace(" ", "T"));
+      }
+      if (isNaN(d.getTime())) return fechaHoraStr;
+
+      const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      const diaNombre = dias[d.getDay()];
+      const diaNum = String(d.getDate()).padStart(2, "0");
+      const mes = String(d.getMonth() + 1).padStart(2, "0");
+      const hora = String(d.getHours()).padStart(2, "0");
+      const min = String(d.getMinutes()).padStart(2, "0");
+
+      return `${diaNombre}. ${diaNum}/${mes} - ${hora}:${min} hs`;
     }
 
     render() {
