@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { Rubik, Open_Sans } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({
+const rubik = Rubik({
   subsets: ["latin"],
-  variable: "--font-outfit",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-rubik",
+});
+
+const openSans = Open_Sans({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-open-sans",
 });
 
 export const metadata: Metadata = {
-  title: "Muove | Plataforma de Widgets de Fútbol",
-  description: "Ecosistema de widgets deportivos personalizables y autogestionados de alta concurrencia.",
+  title: "Data eNe | Widget de Fútbol & Prode Oficial",
+  description: "Plataforma de partidos y Prode oficial para Diario Data eNe.",
 };
 
 export default function RootLayout({
@@ -18,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${outfit.variable} h-full antialiased`}>
+    <html lang="es" className={`${rubik.variable} ${openSans.variable} h-full antialiased`}>
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
@@ -28,3 +35,4 @@ export default function RootLayout({
     </html>
   );
 }
+

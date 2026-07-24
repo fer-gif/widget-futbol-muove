@@ -155,8 +155,9 @@
       const clientId = this.getAttribute("client-id") || "";
       const prodeUrl = `${baseUrl}/prode${clientId ? `?client-id=${clientId}` : ""}`;
 
-      const styleTemplate = `
-        <style>
+      const styleTemplate = `        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Rubik:ital,wght@0,500;0,600;0,700;0,800;0,900;1,500&display=swap');
+
           @keyframes muove-glow-rotate {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -166,7 +167,7 @@
             display: flex;
             flex-direction: column;
             width: 100%;
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Rubik', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             box-sizing: border-box;
             position: relative;
             border-radius: 20px;
@@ -175,7 +176,6 @@
             overflow: hidden;
             box-shadow: none;
           }
-
 
           /* Haz de luz de contorno en movimiento saturado con los colores de DataNE (#7F35B2 y #EF426F) */
           :host::before {
@@ -224,8 +224,6 @@
             pointer-events: none;
           }
 
-
-
           .widget-inner-box {
             position: relative;
             z-index: 1;
@@ -235,14 +233,9 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            /* Bisel 3D neomórfico interior */
             box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.15), inset 0 -3px 10px rgba(0, 0, 0, 0.85);
           }
 
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-          }
           * { box-sizing: border-box; margin: 0; padding: 0; }
           
           .widget-wrapper {
@@ -253,10 +246,10 @@
             position: relative;
           }
 
-
+          /* Panel Diario estilo barra superior Data eNe (#7F35B2) */
           .diario-panel {
             width: 130px;
-            background: ${primaryColor};
+            background: #7F35B2;
             border-right: 1px solid #27272a;
             display: flex;
             flex-direction: column;
@@ -275,7 +268,6 @@
             filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
           }
 
-          
           .slider-wrapper {
             flex-grow: 1;
             position: relative;
@@ -308,28 +300,31 @@
             display: flex;
             flex-direction: column;
           }
-          .match-card:hover { border-color: ${secondaryColor}50; transform: translateY(-2px); }
+          .match-card:hover { border-color: #EF426F; transform: translateY(-2px); }
 
+          /* Barra superior de categoría con la insignia oficial de Data eNe (#EF426F y Rubik) */
           .card-top-bar {
-            background: ${secondaryColor};
-            color: #000;
-            font-size: 9.5px;
-            font-weight: 800;
+            background: #EF426F;
+            color: #ffffff;
+            font-family: 'Rubik', sans-serif;
+            font-size: 10px;
+            font-weight: 700;
             text-align: center;
             padding: 6px 10px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.6px;
           }
           .card-sub-bar {
             background: #09090b;
-            border-bottom: 1px solid #1c1c1e;
+            border-bottom: 1px solid #27272a;
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 6px 12px;
-            color: #71717a;
-            font-size: 9px;
-            font-weight: 700;
+            color: #a1a1aa;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 9.5px;
+            font-weight: 600;
           }
           
           .card-body {
@@ -349,13 +344,21 @@
           }
           .team-block:hover img { transform: scale(1.1); }
           .team-name {
-            color: #f4f4f5; font-size: 10px; font-weight: 700; text-transform: uppercase;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+            color: #f4f4f5;
+            font-family: 'Rubik', sans-serif;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
           }
 
           .nav-btn {
             position: absolute; top: 0; bottom: 0; width: 30px;
-            background: ${secondaryColor}; color: #000; border: none;
+            background: #EF426F; color: #ffffff; border: none;
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 10; transition: all 0.2s; outline: none;
           }
@@ -363,19 +366,21 @@
           .nav-btn-right { right: 0; }
           .nav-btn svg { width: 14px; height: 14px; stroke-width: 3; }
 
-          /* Banner Prode Promocional */
+          /* Banner Prode Promocional estilo Data eNe */
           .prode-promo-bar {
-            background: linear-gradient(90deg, #18181b 0%, #09090b 100%);
+            background: #09090b;
             border-top: 1px solid #27272a;
             padding: 8px 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            font-family: 'Rubik', sans-serif;
           }
           .prode-promo-link {
-            color: ${secondaryColor};
+            color: #EF426F;
+            font-family: 'Rubik', sans-serif;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 700;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
@@ -383,6 +388,7 @@
             transition: transform 0.2s;
           }
           .prode-promo-link:hover { transform: translateX(3px); }
+ }
 
           .widget-footer {
             display: flex; justify-content: flex-end; align-items: center;
