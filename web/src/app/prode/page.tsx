@@ -717,7 +717,7 @@ export default function ProdeDataeNePage() {
                     onClick={() => handleWhatsAppGroupShare(lastCreatedLeague.nombre, lastCreatedLeague.codigo)}
                     className="bg-[#25D366] hover:bg-[#20bd5a] text-white font-extrabold text-xs py-2.5 px-5 rounded-xl flex items-center gap-2 transition-all shadow-md"
                   >
-                    📲 Invitar Amigos por WhatsApp
+                    💬 Invitar Amigos por WhatsApp
                   </button>
                 </div>
               </div>
@@ -730,9 +730,9 @@ export default function ProdeDataeNePage() {
             )}
 
             <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-sm">
-              <h2 className="text-lg font-black text-slate-900">🏆 Armá tu Liga de Amigos en DataeNe</h2>
+              <h2 className="text-lg font-black text-slate-900">Armá tu Liga de Amigos en DataeNe</h2>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Compartí un grupo privado con tus amigos de Necochea, Lobería o San Cayetano. Desafiálos fecha a fecha en el diario.
+                Desafía a tus amigos fecha a fecha para ver quien sabe más del fútbol necochense.
               </p>
 
               <form onSubmit={handleCreateGroupClick} className="space-y-3 pt-2">
@@ -787,7 +787,7 @@ export default function ProdeDataeNePage() {
                           onClick={() => handleWhatsAppGroupShare(l.nombre_grupo, l.codigo_invitacion)}
                           className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center gap-1 shadow-sm"
                         >
-                          📲 Invitar
+                          💬 Invitar
                         </button>
                         <button
                           onClick={() => {
