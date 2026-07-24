@@ -71,6 +71,11 @@ export default function ProdeDataeNePage() {
   const [newGroupName, setNewGroupName] = useState<string>("");
   const [joinCode, setJoinCode] = useState<string>("");
 
+  // Modales de Confirmación e Invitación
+  const [showCreateConfirmModal, setShowCreateConfirmModal] = useState<boolean>(false);
+  const [lastCreatedLeague, setLastCreatedLeague] = useState<{ nombre: string; codigo: string } | null>(null);
+  const [groupError, setGroupError] = useState<string>("");
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cid = params.get("client-id");
@@ -91,7 +96,6 @@ export default function ProdeDataeNePage() {
         setClienteNombre(data.nombre_medio);
         initClient(data.id);
       } else {
-        // Fallback demo data
         initDemoData();
       }
     } catch (e) {
@@ -151,43 +155,28 @@ export default function ProdeDataeNePage() {
     setPartidos(demoPartidos);
     setJornadas(["Fecha 5"]);
     setSelectedJornada("Fecha 5");
-    const initPreds: Record<string, { local: number; visitante: number }> = {};
-    demoPartidos.forEach(p => { initPreds[p.id] = { local: 0, visitante: 0 }; });
-    setPredictions(initPreds);
     setLoading(false);
   }
 
   async function initClient(cid: string) {
     setLoading(true);
-    const stored = localStorage.getItem(`prode_user_${cid}`);
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch (e) {}
-    }
-
     try {
+      const storedUser = localStorage.getItem(`prode_user_${cid}`);
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+
       const res = await fetch(`/api/widget?client-id=${cid}`);
       const data = await res.json();
-      if (data.success) {
-        setClienteNombre(data.nombre_medio || "Data eNe");
-        const matchesList: Partido[] = data.partidos || [];
-        if (matchesList.length > 0) {
-          setPartidos(matchesList);
-          const uniqueJornadas = Array.from(new Set(matchesList.map((p) => p.jornada).filter(Boolean)));
-          setJornadas(uniqueJornadas);
-          if (uniqueJornadas.length > 0) setSelectedJornada(uniqueJornadas[0]);
-
-          const initPreds: Record<string, { local: number; visitante: number }> = {};
-          matchesList.forEach((p) => { initPreds[p.id] = { local: 0, visitante: 0 }; });
-          setPredictions(initPreds);
-        } else {
-          initDemoData();
-        }
+      if (data && data.partidos) {
+        setPartidos(data.partidos);
+        const jList: string[] = Array.from(new Set(data.partidos.map((p: Partido) => p.jornada)));
+        setJornadas(jList);
+        if (jList.length > 0) setSelectedJornada(jList[0]);
       } else {
         initDemoData();
       }
-    } catch (err) {
+    } catch (e) {
       initDemoData();
     } finally {
       setLoading(false);
@@ -195,48 +184,28 @@ export default function ProdeDataeNePage() {
   }
 
   useEffect(() => {
-    if (user && clientId) {
-      fetchUserPredictions();
-      fetchMyLeagues();
-    }
-  }, [user, clientId]);
-
-  useEffect(() => {
-    if (clientId) {
+    if (activeTab === "ranking") {
       fetchLeaderboard();
-    }
-  }, [clientId, activeLeagueId, user]);
-
-  async function fetchUserPredictions() {
-    if (!user) return;
-    try {
-      const res = await fetch(`/api/prode/predict?participante-id=${user.id}`);
-      const data = await res.json();
-      if (data.success && data.pronosticos) {
-        setPredictions((prev) => {
-          const next = { ...prev };
-          data.pronosticos.forEach((pr: any) => {
-            next[pr.partido_id] = {
-              local: pr.goles_local_pred,
-              visitante: pr.goles_visitante_pred,
-            };
-          });
-          return next;
-        });
+    } else if (activeTab === "amigos") {
+      if (user) {
+        fetchMyLeagues();
       }
-    } catch (e) {}
-  }
+    }
+  }, [activeTab, activeLeagueId, user]);
 
   async function fetchLeaderboard() {
-    if (!clientId) return;
     try {
-      let url = `/api/prode/leaderboard?client-id=${clientId}`;
-      if (user) url += `&participante-id=${user.id}`;
-      if (activeLeagueId !== "general") url += `&liga-privada-id=${activeLeagueId}`;
+      let url = `/api/prode/leaderboard?client-id=${clientId || "demo"}`;
+      if (activeLeagueId !== "general") {
+        url += `&liga-privada-id=${activeLeagueId}`;
+      }
+      if (user) {
+        url += `&participante-id=${user.id}`;
+      }
 
       const res = await fetch(url);
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setLeaderboard(data.ranking || []);
       }
     } catch (e) {}
@@ -270,6 +239,8 @@ export default function ProdeDataeNePage() {
   async function handleSavePredictions() {
     if (!user) {
       setShowAuthModal(true);
+      setAuthMode("login");
+      setAuthError("Ingresá o registrate con tu apodo para guardar tus pronósticos.");
       return;
     }
 
@@ -333,9 +304,23 @@ export default function ProdeDataeNePage() {
     }
   }
 
-  async function handleCreateGroup(e: React.FormEvent) {
+  function handleCreateGroupClick(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !newGroupName) return;
+    setGroupError("");
+
+    if (!user) {
+      setShowAuthModal(true);
+      setAuthMode("login");
+      setAuthError("Debés ingresar o registrarte con tu usuario para crear una Liga de Amigos.");
+      return;
+    }
+    if (!newGroupName.trim()) return;
+
+    setShowCreateConfirmModal(true);
+  }
+
+  async function handleConfirmCreateGroup() {
+    if (!user || !newGroupName.trim()) return;
 
     try {
       const res = await fetch("/api/prode/leagues", {
@@ -345,22 +330,37 @@ export default function ProdeDataeNePage() {
           action: "create",
           clientId,
           participanteId: user.id,
-          nombreGrupo: newGroupName,
+          nombreGrupo: newGroupName.trim(),
         }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         await fetchMyLeagues();
-        setActiveLeagueId(data.liga.id);
-        setShowGroupModal(false);
+        setLastCreatedLeague({
+          nombre: data.liga.nombre_grupo,
+          codigo: data.liga.codigo_invitacion,
+        });
+        setShowCreateConfirmModal(false);
         setNewGroupName("");
+      } else {
+        setGroupError(data.error || "Error al crear la liga de amigos.");
       }
-    } catch (e) {}
+    } catch (e) {
+      setGroupError("Error de conexión.");
+    }
   }
 
   async function handleJoinGroup(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !joinCode) return;
+    setGroupError("");
+
+    if (!user) {
+      setShowAuthModal(true);
+      setAuthMode("login");
+      setAuthError("Debés ingresar o registrarte con tu usuario para unirte a una Liga de Amigos.");
+      return;
+    }
+    if (!joinCode.trim()) return;
 
     try {
       const res = await fetch("/api/prode/leagues", {
@@ -369,17 +369,28 @@ export default function ProdeDataeNePage() {
         body: JSON.stringify({
           action: "join",
           participanteId: user.id,
-          codigoInvitacion: joinCode,
+          codigoInvitacion: joinCode.trim(),
         }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         await fetchMyLeagues();
         setActiveLeagueId(data.liga.id);
-        setShowGroupModal(false);
+        setActiveTab("ranking");
         setJoinCode("");
+      } else {
+        setGroupError(data.error || "No encontramos ningún grupo activo con ese código.");
       }
-    } catch (e) {}
+    } catch (e) {
+      setGroupError("Error de red al intentar unirte.");
+    }
+  }
+
+  function handleWhatsAppGroupShare(nombre: string, codigo: string) {
+    const text = encodeURIComponent(
+      `¡Sumate a mi Liga de Amigos "${nombre}" en el Prode de Data eNe! 🏆 Entrá al diario acá: ${window.location.origin}/prode e ingresá con mi código de grupo: ${codigo}`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   }
 
   function handleWhatsAppShare() {
@@ -395,7 +406,6 @@ export default function ProdeDataeNePage() {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 font-sans flex flex-col justify-between">
-      {/* Top Header con Logo Oficial de DataeNe */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-40 px-4 py-2.5 shadow-sm">
         <div className="max-w-5xl mx-auto flex items-center justify-center">
           <img
@@ -406,7 +416,6 @@ export default function ProdeDataeNePage() {
         </div>
       </header>
 
-      {/* Hero Sub-Header de DataeNe compacto */}
       <div className="bg-slate-50 border-b border-slate-200 py-4 px-4 text-center">
         <div className="max-w-3xl mx-auto space-y-1">
           <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
@@ -418,9 +427,7 @@ export default function ProdeDataeNePage() {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <main className="max-w-5xl mx-auto w-full px-4 py-4 flex-grow">
-        {/* Navigation Tabs (Barra Violeta #7F35B2 con activo en Rosa #EF426F idéntico a Data eNe) */}
         <div className="flex bg-[#7F35B2] p-1 mb-3 max-w-2xl mx-auto shadow-md rounded">
           <button
             onClick={() => setActiveTab("fixture")}
@@ -448,7 +455,6 @@ export default function ProdeDataeNePage() {
           </button>
         </div>
 
-        {/* User Session Bar DEBAJO del menú de navegación (Compacto) */}
         <div className="flex justify-center mb-6">
           {user ? (
             <div className="flex items-center gap-3 bg-slate-100 border border-slate-200 px-4 py-2 rounded-xl text-xs shadow-sm">
@@ -479,11 +485,8 @@ export default function ProdeDataeNePage() {
           )}
         </div>
 
-
-        {/* TAB 1: FIXTURE & VOTOS */}
         {activeTab === "fixture" && (
           <div className="space-y-6">
-            {/* Jornadas Selector */}
             {jornadas.length > 0 && (
               <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm">
                 <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Jornada Activa:</span>
@@ -503,7 +506,6 @@ export default function ProdeDataeNePage() {
               </div>
             )}
 
-            {/* Notification Banner */}
             {prodeMsg && (
               <div
                 className={`p-4 rounded text-xs font-bold text-center border ${
@@ -516,7 +518,6 @@ export default function ProdeDataeNePage() {
               </div>
             )}
 
-            {/* Matches Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredPartidos.map((p) => {
                 const pred = predictions[p.id] || { local: 0, visitante: 0 };
@@ -528,12 +529,10 @@ export default function ProdeDataeNePage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-4 py-2">
-                      {/* Local */}
                       <div className="flex flex-col items-center gap-2 flex-1 text-center">
                         <img src={p.equipo_local.logo || "https://placehold.co/40/121214/fff?text=L"} alt="" className="w-14 h-14 object-contain drop-shadow" />
                         <span className="text-xs font-black text-slate-900 uppercase tracking-wide line-clamp-1">{p.equipo_local.nombre}</span>
                         
-                        {/* Selector Local */}
                         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
                           <button onClick={() => handleScoreChange(p.id, "local", -1)} className="w-7 h-7 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded transition-colors">-</button>
                           <span className="w-6 text-center font-black text-sm text-[#EF426F]">{pred.local}</span>
@@ -543,12 +542,10 @@ export default function ProdeDataeNePage() {
 
                       <div className="font-black text-slate-400 text-xs">VS</div>
 
-                      {/* Visitante */}
                       <div className="flex flex-col items-center gap-2 flex-1 text-center">
                         <img src={p.equipo_visitante.logo || "https://placehold.co/40/121214/fff?text=V"} alt="" className="w-14 h-14 object-contain drop-shadow" />
                         <span className="text-xs font-black text-slate-900 uppercase tracking-wide line-clamp-1">{p.equipo_visitante.nombre}</span>
                         
-                        {/* Selector Visitante */}
                         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl">
                           <button onClick={() => handleScoreChange(p.id, "visitante", -1)} className="w-7 h-7 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded transition-colors">-</button>
                           <span className="w-6 text-center font-black text-sm text-[#EF426F]">{pred.visitante}</span>
@@ -561,7 +558,6 @@ export default function ProdeDataeNePage() {
               })}
             </div>
 
-            {/* Sticky Save Action Bar */}
             <div className="sticky bottom-6 flex justify-center pt-4">
               <button
                 onClick={handleSavePredictions}
@@ -573,7 +569,6 @@ export default function ProdeDataeNePage() {
           </div>
         )}
 
-        {/* TAB 2: RANKING & LEADERBOARD */}
         {activeTab === "ranking" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 gap-4 flex-wrap shadow-sm">
@@ -607,7 +602,6 @@ export default function ProdeDataeNePage() {
               </button>
             </div>
 
-            {/* Leaderboard Table */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <div className="divide-y divide-slate-100">
                 {leaderboard.length > 0 ? (
@@ -639,17 +633,41 @@ export default function ProdeDataeNePage() {
           </div>
         )}
 
-        {/* TAB 3: LIGAS DE AMIGOS */}
         {activeTab === "amigos" && (
           <div className="space-y-6 max-w-xl mx-auto">
+            {lastCreatedLeague && (
+              <div className="bg-[#7F35B2]/10 border border-[#7F35B2] rounded-2xl p-5 space-y-3 shadow-md text-center">
+                <span className="bg-[#EF426F] text-white text-[10px] font-black uppercase px-2.5 py-1 rounded">
+                  ¡Campeonato Creado con Éxito! 🎉
+                </span>
+                <h3 className="text-lg font-black text-slate-900">{lastCreatedLeague.nombre}</h3>
+                <p className="text-xs text-slate-600">
+                  Tu código único de grupo es: <strong className="text-[#7F35B2] font-mono text-sm px-2 py-1 bg-white rounded border border-slate-200">{lastCreatedLeague.codigo}</strong>
+                </p>
+                <div className="pt-2 flex justify-center gap-2">
+                  <button
+                    onClick={() => handleWhatsAppGroupShare(lastCreatedLeague.nombre, lastCreatedLeague.codigo)}
+                    className="bg-[#25D366] hover:bg-[#20bd5a] text-white font-extrabold text-xs py-2.5 px-5 rounded-xl flex items-center gap-2 transition-all shadow-md"
+                  >
+                    📲 Invitar Amigos por WhatsApp
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {groupError && (
+              <div className="bg-red-500/10 border border-red-500/30 text-red-600 text-xs font-bold p-3 rounded-xl text-center">
+                {groupError}
+              </div>
+            )}
+
             <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-sm">
               <h2 className="text-lg font-black text-slate-900">🏆 Armá tu Liga de Amigos en DataeNe</h2>
               <p className="text-xs text-slate-600 leading-relaxed">
                 Compartí un grupo privado con tus amigos de Necochea, Lobería o San Cayetano. Desafiálos fecha a fecha en el diario.
               </p>
 
-              {/* Crear Grupo Form */}
-              <form onSubmit={handleCreateGroup} className="space-y-3 pt-2">
+              <form onSubmit={handleCreateGroupClick} className="space-y-3 pt-2">
                 <label className="text-xs font-extrabold text-slate-700">➕ Crear Grupo Nuevo:</label>
                 <div className="flex gap-2">
                   <input
@@ -667,7 +685,6 @@ export default function ProdeDataeNePage() {
               </form>
 
               <div className="border-t border-slate-100 pt-6">
-                {/* Unirse Form */}
                 <form onSubmit={handleJoinGroup} className="space-y-3">
                   <label className="text-xs font-extrabold text-slate-700">🔑 Unirme con Código de Amigo:</label>
                   <div className="flex gap-2">
@@ -687,7 +704,6 @@ export default function ProdeDataeNePage() {
               </div>
             </div>
 
-            {/* List of Joined Leagues */}
             {myLeagues.length > 0 && (
               <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
                 <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider">Mis Grupos Activos</h3>
@@ -698,15 +714,23 @@ export default function ProdeDataeNePage() {
                         <div className="font-extrabold text-sm text-slate-900">{l.nombre_grupo}</div>
                         <div className="text-xs text-slate-500 font-mono">Código: <span className="text-[#EF426F] font-black">{l.codigo_invitacion}</span></div>
                       </div>
-                      <button
-                        onClick={() => {
-                          setActiveLeagueId(l.id);
-                          setActiveTab("ranking");
-                        }}
-                        className="bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold py-2 px-3 rounded-lg border border-slate-200"
-                      >
-                        Ver Ranking
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleWhatsAppGroupShare(l.nombre_grupo, l.codigo_invitacion)}
+                          className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center gap-1 shadow-sm"
+                        >
+                          📲 Invitar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveLeagueId(l.id);
+                            setActiveTab("ranking");
+                          }}
+                          className="bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold py-2 px-3 rounded-lg border border-slate-200"
+                        >
+                          Ver Ranking
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -716,7 +740,37 @@ export default function ProdeDataeNePage() {
         )}
       </main>
 
-      {/* Auth Modal (Email + PIN) */}
+      {showCreateConfirmModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-sm w-full space-y-4 relative shadow-2xl text-center">
+            <button onClick={() => setShowCreateConfirmModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 font-extrabold text-sm">✕</button>
+
+            <span className="text-3xl block">🏆</span>
+            <h3 className="text-lg font-black text-slate-900">
+              ¿Querés crear este nuevo campeonato con amigos?
+            </h3>
+            <p className="text-xs text-slate-600">
+              Vas a crear la liga <strong className="text-slate-900">"{newGroupName}"</strong>. Al confirmar, te generaremos un código único para que invites a tus amigos por WhatsApp.
+            </p>
+
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                onClick={handleConfirmCreateGroup}
+                className="w-full bg-[#EF426F] hover:bg-[#d83760] text-white font-extrabold text-xs py-3.5 rounded-xl transition-all shadow-sm"
+              >
+                Sí, crear campeonato
+              </button>
+              <button
+                onClick={() => setShowCreateConfirmModal(false)}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs py-2.5 rounded-xl transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAuthModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-sm w-full space-y-5 relative shadow-2xl">
@@ -784,13 +838,9 @@ export default function ProdeDataeNePage() {
         </div>
       )}
 
-      {/* Footer Oficial */}
       <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-500 bg-slate-50">
         <p>© {new Date().getFullYear()} Data eNe | Todos los derechos reservados. Prode Desarrollado por Muove Widgets.</p>
       </footer>
     </div>
   );
 }
-
-
-
