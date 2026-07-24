@@ -175,7 +175,7 @@
             overflow: hidden;
           }
 
-          /* Haz de luz de contorno en movimiento brillante */
+          /* Haz de luz de contorno en movimiento brillante con los 2 colores de DataNE (#7F35B2 y #ff5757) */
           :host::before {
             content: '';
             position: absolute;
@@ -186,18 +186,18 @@
             background: conic-gradient(
               from 0deg,
               transparent 0deg,
-              transparent 270deg,
-              rgba(255, 121, 0, 0.25) 310deg,
-              #ff7900 348deg,
-              #ffd080 355deg,
-              #ff7900 360deg
+              transparent 200deg,
+              rgba(127, 53, 178, 0.4) 250deg,
+              #7F35B2 290deg,
+              #ff5757 335deg,
+              #7F35B2 360deg
             );
             animation: muove-glow-rotate 4s linear infinite;
             z-index: 0;
             pointer-events: none;
           }
 
-          /* Resplandor ambiental exterior (Aura) */
+          /* Resplandor ambiental exterior (Aura) con los colores de DataNE */
           :host::after {
             content: '';
             position: absolute;
@@ -208,16 +208,19 @@
             background: conic-gradient(
               from 0deg,
               transparent 0deg,
-              transparent 290deg,
-              rgba(255, 121, 0, 0.4) 330deg,
-              #ff7900 360deg
+              transparent 220deg,
+              rgba(127, 53, 178, 0.6) 270deg,
+              #7F35B2 310deg,
+              #ff5757 345deg,
+              #7F35B2 360deg
             );
             animation: muove-glow-rotate 4s linear infinite;
-            filter: blur(10px);
-            opacity: 0.65;
+            filter: blur(12px);
+            opacity: 0.75;
             z-index: 0;
             pointer-events: none;
           }
+
 
           .widget-inner-box {
             position: relative;
