@@ -394,9 +394,10 @@ export default function ProdeDataeNePage() {
     : partidos;
 
   return (
+
     <div className="min-h-screen bg-[#09090b] text-slate-100 font-sans flex flex-col justify-between">
       {/* Top Header con Branding Oficial de DataeNe */}
-      <header className="border-b border-[#27272a] bg-[#121214]/95 backdrop-blur-md sticky top-0 z-40 px-4 py-3 shadow-lg">
+      <header className="border-b border-[#27272a] bg-[#121214] sticky top-0 z-40 px-4 py-3 shadow-lg">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
@@ -404,7 +405,7 @@ export default function ProdeDataeNePage() {
               alt="Data eNe"
               className="h-9 w-auto object-contain"
             />
-            <span className="bg-[#7F35B2]/20 text-[#EF426F] font-extrabold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border border-[#EF426F]/30">
+            <span className="bg-[#EF426F] text-white font-extrabold text-[10px] uppercase tracking-wider px-3 py-1 rounded">
               PRODE NECOCHEA & QUEQUÉN
             </span>
           </div>
@@ -433,7 +434,7 @@ export default function ProdeDataeNePage() {
                   setShowAuthModal(true);
                   setAuthMode("login");
                 }}
-                className="bg-gradient-to-r from-[#7F35B2] to-[#EF426F] hover:opacity-95 text-white text-xs font-extrabold py-2.5 px-4 rounded-xl transition-all shadow-lg shadow-[#7F35B2]/25"
+                className="bg-[#EF426F] hover:bg-[#d83760] text-white text-xs font-extrabold py-2.5 px-4 rounded transition-all shadow-md"
               >
                 🔑 Ingresar / Registrarme
               </button>
@@ -443,10 +444,10 @@ export default function ProdeDataeNePage() {
       </header>
 
       {/* Hero Sub-Header de DataeNe */}
-      <div className="bg-gradient-to-r from-[#09090b] via-[#121214] to-[#09090b] border-b border-[#27272a] py-6 px-4 text-center relative overflow-hidden">
-        <div className="max-w-3xl mx-auto space-y-2 relative z-10">
+      <div className="bg-[#121214] border-b border-[#27272a] py-6 px-4 text-center">
+        <div className="max-w-3xl mx-auto space-y-2">
           <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-            El Prode Oficial del Fútbol de <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#7F35B2] to-[#EF426F]">Necochea y Quequén</span>
+            El Prode Oficial del Fútbol de <span className="text-[#EF426F]">Necochea y Quequén</span>
           </h1>
           <p className="text-xs text-zinc-400 max-w-xl mx-auto">
             Demostrá cuánto sabés del fútbol local. Arriesgá tus pronósticos cada fecha, sumá puntos y competí contra tus amigos en <strong className="text-white">Data eNe</strong>.
@@ -456,28 +457,28 @@ export default function ProdeDataeNePage() {
 
       {/* Main Content Area */}
       <main className="max-w-5xl mx-auto w-full px-4 py-8 flex-grow">
-        {/* Navigation Tabs */}
-        <div className="flex bg-[#121214] border border-[#27272a] rounded-2xl p-1.5 mb-8 max-w-xl mx-auto gap-2 shadow-md">
+        {/* Navigation Tabs (Barra Violeta #7F35B2 con activo en Rosa #EF426F idéntico al sitio Data eNe) */}
+        <div className="flex bg-[#7F35B2] p-1 mb-8 max-w-2xl mx-auto shadow-lg rounded">
           <button
             onClick={() => setActiveTab("fixture")}
-            className={`flex-1 py-3 rounded-xl text-xs font-extrabold transition-all ${
-              activeTab === "fixture" ? "bg-gradient-to-r from-[#7F35B2] to-[#EF426F] text-white shadow-md shadow-[#7F35B2]/30" : "text-zinc-400 hover:text-white"
+            className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider transition-all ${
+              activeTab === "fixture" ? "bg-[#EF426F] text-white shadow-md" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
             ⚽ Cargar Pronósticos
           </button>
           <button
             onClick={() => setActiveTab("ranking")}
-            className={`flex-1 py-3 rounded-xl text-xs font-extrabold transition-all ${
-              activeTab === "ranking" ? "bg-gradient-to-r from-[#7F35B2] to-[#EF426F] text-white shadow-md shadow-[#7F35B2]/30" : "text-zinc-400 hover:text-white"
+            className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider transition-all ${
+              activeTab === "ranking" ? "bg-[#EF426F] text-white shadow-md" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
             🏆 Posiciones DataeNe
           </button>
           <button
             onClick={() => setActiveTab("amigos")}
-            className={`flex-1 py-3 rounded-xl text-xs font-extrabold transition-all ${
-              activeTab === "amigos" ? "bg-gradient-to-r from-[#7F35B2] to-[#EF426F] text-white shadow-md shadow-[#7F35B2]/30" : "text-zinc-400 hover:text-white"
+            className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider transition-all ${
+              activeTab === "amigos" ? "bg-[#EF426F] text-white shadow-md" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
             👥 Ligas de Amigos
@@ -496,7 +497,7 @@ export default function ProdeDataeNePage() {
                     <button
                       key={j}
                       onClick={() => setSelectedJornada(j)}
-                      className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-colors ${
+                      className={`px-4 py-2 rounded text-xs font-black uppercase transition-colors ${
                         selectedJornada === j ? "bg-[#EF426F] text-white shadow-md" : "bg-[#09090b] text-zinc-300 hover:bg-[#27272a]"
                       }`}
                     >
@@ -510,9 +511,9 @@ export default function ProdeDataeNePage() {
             {/* Notification Banner */}
             {prodeMsg && (
               <div
-                className={`p-4 rounded-xl text-xs font-bold text-center border ${
+                className={`p-4 rounded text-xs font-bold text-center border ${
                   prodeMsg.type === "success"
-                    ? "bg-[#7F35B2]/10 border-[#7F35B2]/30 text-[#EF426F]"
+                    ? "bg-[#7F35B2]/20 border-[#7F35B2] text-[#EF426F]"
                     : "bg-red-500/10 border-red-500/30 text-red-400"
                 }`}
               >
@@ -525,10 +526,10 @@ export default function ProdeDataeNePage() {
               {filteredPartidos.map((p) => {
                 const pred = predictions[p.id] || { local: 0, visitante: 0 };
                 return (
-                  <div key={p.id} className="bg-[#121214] border border-[#27272a] rounded-2xl p-5 hover:border-[#EF426F]/50 transition-all flex flex-col justify-between gap-4 shadow-lg">
-                    <div className="flex justify-between items-center text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-[#27272a] pb-3">
+                  <div key={p.id} className="bg-[#121214] border border-[#27272a] rounded-2xl p-5 hover:border-[#EF426F] transition-all flex flex-col justify-between gap-4 shadow-lg">
+                    <div className="flex justify-between items-center text-[10px] font-black text-zinc-400 uppercase tracking-wider border-b border-[#27272a] pb-3">
                       <span>{p.liga_nombre}</span>
-                      <span className="text-[#EF426F] font-black">{p.jornada}</span>
+                      <span className="bg-[#EF426F] text-white px-2 py-0.5 rounded font-extrabold">{p.jornada}</span>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 py-2">
@@ -539,9 +540,9 @@ export default function ProdeDataeNePage() {
                         
                         {/* Selector Local */}
                         <div className="flex items-center gap-2 bg-[#09090b] border border-[#27272a] p-1.5 rounded-xl">
-                          <button onClick={() => handleScoreChange(p.id, "local", -1)} className="w-7 h-7 bg-[#18181b] hover:bg-[#7F35B2] hover:text-white text-zinc-200 font-extrabold rounded-lg transition-colors">-</button>
+                          <button onClick={() => handleScoreChange(p.id, "local", -1)} className="w-7 h-7 bg-[#18181b] hover:bg-[#EF426F] hover:text-white text-zinc-200 font-extrabold rounded transition-colors">-</button>
                           <span className="w-6 text-center font-black text-sm text-[#EF426F]">{pred.local}</span>
-                          <button onClick={() => handleScoreChange(p.id, "local", 1)} className="w-7 h-7 bg-[#18181b] hover:bg-[#7F35B2] hover:text-white text-zinc-200 font-extrabold rounded-lg transition-colors">+</button>
+                          <button onClick={() => handleScoreChange(p.id, "local", 1)} className="w-7 h-7 bg-[#18181b] hover:bg-[#EF426F] hover:text-white text-zinc-200 font-extrabold rounded transition-colors">+</button>
                         </div>
                       </div>
 
@@ -554,9 +555,9 @@ export default function ProdeDataeNePage() {
                         
                         {/* Selector Visitante */}
                         <div className="flex items-center gap-2 bg-[#09090b] border border-[#27272a] p-1.5 rounded-xl">
-                          <button onClick={() => handleScoreChange(p.id, "visitante", -1)} className="w-7 h-7 bg-[#18181b] hover:bg-[#7F35B2] hover:text-white text-zinc-200 font-extrabold rounded-lg transition-colors">-</button>
+                          <button onClick={() => handleScoreChange(p.id, "visitante", -1)} className="w-7 h-7 bg-[#18181b] hover:bg-[#EF426F] hover:text-white text-zinc-200 font-extrabold rounded transition-colors">-</button>
                           <span className="w-6 text-center font-black text-sm text-[#EF426F]">{pred.visitante}</span>
-                          <button onClick={() => handleScoreChange(p.id, "visitante", 1)} className="w-7 h-7 bg-[#18181b] hover:bg-[#7F35B2] hover:text-white text-zinc-200 font-extrabold rounded-lg transition-colors">+</button>
+                          <button onClick={() => handleScoreChange(p.id, "visitante", 1)} className="w-7 h-7 bg-[#18181b] hover:bg-[#EF426F] hover:text-white text-zinc-200 font-extrabold rounded transition-colors">+</button>
                         </div>
                       </div>
                     </div>
@@ -569,7 +570,7 @@ export default function ProdeDataeNePage() {
             <div className="sticky bottom-6 flex justify-center pt-4">
               <button
                 onClick={handleSavePredictions}
-                className="bg-gradient-to-r from-[#7F35B2] to-[#EF426F] hover:opacity-95 text-white font-black text-sm py-4 px-8 rounded-2xl shadow-xl shadow-[#7F35B2]/25 transition-all hover:scale-105"
+                className="bg-[#EF426F] hover:bg-[#d83760] text-white font-black text-sm py-4 px-8 rounded-xl shadow-xl transition-all hover:scale-105"
               >
                 💾 Guardar mis pronósticos de la fecha
               </button>
@@ -584,8 +585,8 @@ export default function ProdeDataeNePage() {
               <div className="flex gap-2 overflow-x-auto">
                 <button
                   onClick={() => setActiveLeagueId("general")}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-colors ${
-                    activeLeagueId === "general" ? "bg-gradient-to-r from-[#7F35B2] to-[#EF426F] text-white" : "bg-[#09090b] text-zinc-400 hover:text-white"
+                  className={`px-4 py-2 rounded text-xs font-black uppercase transition-colors ${
+                    activeLeagueId === "general" ? "bg-[#EF426F] text-white" : "bg-[#09090b] text-zinc-400 hover:text-white"
                   }`}
                 >
                   🌍 Ranking General DataeNe
@@ -594,8 +595,8 @@ export default function ProdeDataeNePage() {
                   <button
                     key={l.id}
                     onClick={() => setActiveLeagueId(l.id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-colors ${
-                      activeLeagueId === l.id ? "bg-gradient-to-r from-[#7F35B2] to-[#EF426F] text-white" : "bg-[#09090b] text-zinc-400 hover:text-white"
+                    className={`px-4 py-2 rounded text-xs font-black uppercase transition-colors ${
+                      activeLeagueId === l.id ? "bg-[#EF426F] text-white" : "bg-[#09090b] text-zinc-400 hover:text-white"
                     }`}
                   >
                     👥 {l.nombre_grupo}
@@ -619,7 +620,7 @@ export default function ProdeDataeNePage() {
                     <div
                       key={item.id}
                       className={`flex items-center justify-between p-4 text-xs transition-colors ${
-                        item.es_usuario_actual ? "bg-[#7F35B2]/15 border-l-4 border-[#EF426F]" : "hover:bg-[#09090b]"
+                        item.es_usuario_actual ? "bg-[#7F35B2]/20 border-l-4 border-[#EF426F]" : "hover:bg-[#09090b]"
                       }`}
                     >
                       <div className="flex items-center gap-4">
@@ -664,7 +665,7 @@ export default function ProdeDataeNePage() {
                     required
                     className="flex-1 bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#EF426F]"
                   />
-                  <button type="submit" className="bg-gradient-to-r from-[#7F35B2] to-[#EF426F] hover:opacity-95 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition-all shadow-md">
+                  <button type="submit" className="bg-[#EF426F] hover:bg-[#d83760] text-white font-extrabold text-xs px-5 py-3 rounded-xl transition-all shadow-md">
                     Crear
                   </button>
                 </div>
@@ -771,7 +772,7 @@ export default function ProdeDataeNePage() {
                 className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#EF426F]"
               />
 
-              <button type="submit" className="w-full bg-gradient-to-r from-[#7F35B2] to-[#EF426F] hover:opacity-95 text-white font-extrabold text-xs py-3.5 rounded-xl transition-all shadow-lg shadow-[#7F35B2]/30">
+              <button type="submit" className="w-full bg-[#EF426F] hover:bg-[#d83760] text-white font-extrabold text-xs py-3.5 rounded-xl transition-all shadow-md">
                 {authMode === "login" ? "Ingresar y Guardar" : "Crear Perfil y Guardar"}
               </button>
             </form>
@@ -795,4 +796,5 @@ export default function ProdeDataeNePage() {
     </div>
   );
 }
+
 
