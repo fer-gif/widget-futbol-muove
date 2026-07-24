@@ -813,7 +813,7 @@ export default function ProdeDataeNePage() {
             {/* Header & Zona Switcher */}
             <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 flex-wrap gap-4 shadow-sm">
               <div>
-                <h2 className="text-base font-black text-slate-900">📊 Tablas Oficiales de Posiciones</h2>
+                <h2 className="text-base font-black text-slate-900">Tablas Oficiales de Posiciones</h2>
                 <p className="text-xs text-slate-500">Liga Necochea de Fútbol - Torneo de Primera</p>
               </div>
 
@@ -845,10 +845,7 @@ export default function ProdeDataeNePage() {
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <div className="bg-[#7F35B2] text-white px-5 py-3 flex items-center justify-between">
                 <span className="font-black text-sm uppercase tracking-wider">
-                  🏆 Tabla de Posiciones - {selectedZona === "A" ? "Zona A" : "Zona B"}
-                </span>
-                <span className="text-[11px] font-extrabold bg-[#EF426F] px-2.5 py-0.5 rounded">
-                  Fecha 11
+                  TABLA DE POSICIONES - {selectedZona === "A" ? "ZONA A" : "ZONA B"}
                 </span>
               </div>
 
