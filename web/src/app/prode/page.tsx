@@ -32,6 +32,20 @@ type League = {
   es_creador: boolean;
 };
 
+type EquipoTabla = {
+  posicion: number;
+  equipo: string;
+  logo?: string;
+  jugados: number;
+  ganados: number;
+  empatados: number;
+  perdidos: number;
+  golesFavor: number;
+  golesContra: number;
+  diferenciaGol: number;
+  puntos: number;
+};
+
 type RankItem = {
   posicion: number;
   id: string;
@@ -65,7 +79,7 @@ export default function ProdeDataeNePage() {
   const [loading, setLoading] = useState<boolean>(true);
   
   // Navigation & Data
-  const [activeTab, setActiveTab] = useState<"fixture" | "ranking" | "amigos">("fixture");
+  const [activeTab, setActiveTab] = useState<"fixture" | "ranking" | "amigos" | "info">("fixture");
   const [partidos, setPartidos] = useState<Partido[]>([]);
   const [jornadas, setJornadas] = useState<string[]>([]);
   const [selectedJornada, setSelectedJornada] = useState<string>("");
@@ -418,6 +432,27 @@ export default function ProdeDataeNePage() {
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   }
 
+  const [zonaA, setZonaA] = useState<EquipoTabla[]>([]);
+  const [zonaB, setZonaB] = useState<EquipoTabla[]>([]);
+  const [selectedZona, setSelectedZona] = useState<"A" | "B">("A");
+
+  useEffect(() => {
+    if (activeTab === "info") {
+      fetchStandings();
+    }
+  }, [activeTab]);
+
+  async function fetchStandings() {
+    try {
+      const res = await fetch("/api/prode/standings");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setZonaA(data.zonaA || []);
+        setZonaB(data.zonaB || []);
+      }
+    } catch (e) {}
+  }
+
   const filteredPartidos = selectedJornada
     ? partidos.filter((p) => p.jornada === selectedJornada)
     : partidos;
@@ -446,18 +481,19 @@ export default function ProdeDataeNePage() {
       </div>
 
       <main className="max-w-5xl mx-auto w-full px-4 py-4 flex-grow">
-        <div className="flex bg-[#7F35B2] p-1 mb-3 max-w-2xl mx-auto shadow-md rounded">
+        {/* Navigation Tabs Bar con 4 Pestañas Oficiales */}
+        <div className="flex bg-[#7F35B2] p-1 mb-3 max-w-4xl mx-auto shadow-md rounded">
           <button
             onClick={() => setActiveTab("fixture")}
-            className={`flex-1 py-2.5 px-3 text-[11px] font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 py-2.5 px-2 text-[11px] font-black uppercase tracking-wider transition-all ${
               activeTab === "fixture" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
-            ⚽ Cargar Pronósticos
+            ⚽ Pronósticos
           </button>
           <button
             onClick={() => setActiveTab("ranking")}
-            className={`flex-1 py-2.5 px-3 text-[11px] font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 py-2.5 px-2 text-[11px] font-black uppercase tracking-wider transition-all ${
               activeTab === "ranking" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -465,13 +501,22 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("amigos")}
-            className={`flex-1 py-2.5 px-3 text-[11px] font-black uppercase tracking-wider transition-all ${
+            className={`flex-1 py-2.5 px-2 text-[11px] font-black uppercase tracking-wider transition-all ${
               activeTab === "amigos" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
             👥 Ligas de Amigos
           </button>
+          <button
+            onClick={() => setActiveTab("info")}
+            className={`flex-1 py-2.5 px-2 text-[11px] font-black uppercase tracking-wider transition-all ${
+              activeTab === "info" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
+            }`}
+          >
+            📊 Info del Torneo
+          </button>
         </div>
+
 
         <div className="flex justify-center mb-6">
           {user ? (
@@ -759,6 +804,105 @@ export default function ProdeDataeNePage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* TAB 4: INFO DEL TORNEO (TABLAS DE POSICIONES ZONA A Y ZONA B) */}
+        {activeTab === "info" && (
+          <div className="space-y-6 max-w-4xl mx-auto">
+            {/* Header & Zona Switcher */}
+            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 flex-wrap gap-4 shadow-sm">
+              <div>
+                <h2 className="text-base font-black text-slate-900">📊 Tablas Oficiales de Posiciones</h2>
+                <p className="text-xs text-slate-500">Liga Necochea de Fútbol - Torneo de Primera</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedZona("A")}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${
+                    selectedZona === "A"
+                      ? "bg-[#EF426F] text-white shadow-sm"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  ZONA A
+                </button>
+                <button
+                  onClick={() => setSelectedZona("B")}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${
+                    selectedZona === "B"
+                      ? "bg-[#EF426F] text-white shadow-sm"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  ZONA B
+                </button>
+              </div>
+            </div>
+
+            {/* Standings Table Card */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-[#7F35B2] text-white px-5 py-3 flex items-center justify-between">
+                <span className="font-black text-sm uppercase tracking-wider">
+                  🏆 Tabla de Posiciones - {selectedZona === "A" ? "Zona A" : "Zona B"}
+                </span>
+                <span className="text-[11px] font-extrabold bg-[#EF426F] px-2.5 py-0.5 rounded">
+                  Fecha 11
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-4 text-center w-10">#</th>
+                      <th className="py-3 px-4">EQUIPO</th>
+                      <th className="py-3 px-2 text-center">J</th>
+                      <th className="py-3 px-2 text-center">G</th>
+                      <th className="py-3 px-2 text-center">E</th>
+                      <th className="py-3 px-2 text-center">P</th>
+                      <th className="py-3 px-2 text-center">GF</th>
+                      <th className="py-3 px-2 text-center">GC</th>
+                      <th className="py-3 px-2 text-center">DIF</th>
+                      <th className="py-3 px-4 text-center bg-[#EF426F]/10 text-[#EF426F]">PTS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {(selectedZona === "A" ? zonaA : zonaB).map((item, idx) => (
+                      <tr
+                        key={item.equipo}
+                        className={`hover:bg-slate-50 transition-colors ${
+                          idx < 4 ? "bg-emerald-50/30" : ""
+                        }`}
+                      >
+                        <td className="py-3 px-4 text-center font-black text-slate-400">
+                          {item.posicion}
+                        </td>
+                        <td className="py-3 px-4 font-black text-slate-900 flex items-center gap-2">
+                          {item.logo && (
+                            <img src={item.logo} alt="" className="w-6 h-6 object-contain" />
+                          )}
+                          <span>{item.equipo}</span>
+                        </td>
+                        <td className="py-3 px-2 text-center font-semibold">{item.jugados}</td>
+                        <td className="py-3 px-2 text-center font-semibold text-emerald-600">{item.ganados}</td>
+                        <td className="py-3 px-2 text-center font-semibold text-amber-600">{item.empatados}</td>
+                        <td className="py-3 px-2 text-center font-semibold text-rose-600">{item.perdidos}</td>
+                        <td className="py-3 px-2 text-center text-slate-600">{item.golesFavor}</td>
+                        <td className="py-3 px-2 text-center text-slate-600">{item.golesContra}</td>
+                        <td className={`py-3 px-2 text-center font-bold ${item.diferenciaGol > 0 ? "text-emerald-600" : item.diferenciaGol < 0 ? "text-rose-600" : "text-slate-500"}`}>
+                          {item.diferenciaGol > 0 ? `+${item.diferenciaGol}` : item.diferenciaGol}
+                        </td>
+                        <td className="py-3 px-4 text-center font-black text-sm text-[#EF426F] bg-[#EF426F]/5">
+                          {item.puntos}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </main>
