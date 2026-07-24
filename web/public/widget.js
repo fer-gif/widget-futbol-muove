@@ -170,14 +170,14 @@
             box-sizing: border-box;
             position: relative;
             border-radius: 20px;
-            padding: 3.5px; /* Borde más grueso y prominente */
-            background: transparent;
+            padding: 3.5px;
+            background: #121214;
             overflow: hidden;
-            /* Sombreado 3D de elevación con aura sutil */
-            box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.95), 0 0 35px -5px rgba(127, 53, 178, 0.4);
+            /* Sombreado de alto contraste para destacar sobre fondos blancos o claros */
+            box-shadow: 0 12px 35px -5px rgba(0, 0, 0, 0.4), 0 0 25px rgba(127, 53, 178, 0.35);
           }
 
-          /* Haz de luz de contorno en movimiento intenso con destello brillante */
+          /* Haz de luz de contorno en movimiento saturado sin tonos blancos */
           :host::before {
             content: '';
             position: absolute;
@@ -189,10 +189,10 @@
               from 0deg,
               transparent 0deg,
               transparent 120deg,
-              rgba(127, 53, 178, 0.6) 180deg,
-              #7F35B2 240deg,
-              #ff5757 310deg,
-              #ffffff 352deg,
+              rgba(127, 53, 178, 0.5) 170deg,
+              #7F35B2 230deg,
+              #ff5757 300deg,
+              #ff80bf 345deg,
               #7F35B2 360deg
             );
             animation: muove-glow-rotate 3.2s linear infinite;
@@ -200,7 +200,7 @@
             pointer-events: none;
           }
 
-          /* Resplandor 3D ambiental exterior potente (Aura Vívido) */
+          /* Resplandor ambiental exterior en violeta y rojo saturado */
           :host::after {
             content: '';
             position: absolute;
@@ -212,17 +212,18 @@
               from 0deg,
               transparent 0deg,
               transparent 140deg,
-              rgba(127, 53, 178, 0.8) 200deg,
-              #7F35B2 260deg,
-              #ff5757 320deg,
+              rgba(127, 53, 178, 0.7) 190deg,
+              #7F35B2 250deg,
+              #ff5757 315deg,
               #7F35B2 360deg
             );
             animation: muove-glow-rotate 3.2s linear infinite;
-            filter: blur(14px);
-            opacity: 0.95;
+            filter: blur(12px);
+            opacity: 0.9;
             z-index: 0;
             pointer-events: none;
           }
+
 
           .widget-inner-box {
             position: relative;
