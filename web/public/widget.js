@@ -171,11 +171,11 @@
             position: relative;
             border-radius: 20px;
             padding: 3.5px;
-            background: #121214;
+            background: transparent;
             overflow: hidden;
-            /* Sombreado de alto contraste para destacar sobre fondos blancos o claros */
-            box-shadow: 0 12px 35px -5px rgba(0, 0, 0, 0.4), 0 0 25px rgba(127, 53, 178, 0.35);
+            box-shadow: none;
           }
+
 
           /* Haz de luz de contorno en movimiento saturado sin tonos blancos */
           :host::before {
