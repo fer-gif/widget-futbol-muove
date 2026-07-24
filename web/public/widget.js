@@ -169,13 +169,15 @@
             font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             box-sizing: border-box;
             position: relative;
-            border-radius: 18px;
-            padding: 1.5px;
+            border-radius: 20px;
+            padding: 3.5px; /* Borde más grueso y prominente */
             background: transparent;
             overflow: hidden;
+            /* Sombreado 3D de elevación con aura sutil */
+            box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.95), 0 0 35px -5px rgba(127, 53, 178, 0.4);
           }
 
-          /* Haz de luz de contorno en movimiento brillante con los 2 colores de DataNE (#7F35B2 y #ff5757) */
+          /* Haz de luz de contorno en movimiento intenso con destello brillante */
           :host::before {
             content: '';
             position: absolute;
@@ -186,18 +188,19 @@
             background: conic-gradient(
               from 0deg,
               transparent 0deg,
-              transparent 200deg,
-              rgba(127, 53, 178, 0.4) 250deg,
-              #7F35B2 290deg,
-              #ff5757 335deg,
+              transparent 120deg,
+              rgba(127, 53, 178, 0.6) 180deg,
+              #7F35B2 240deg,
+              #ff5757 310deg,
+              #ffffff 352deg,
               #7F35B2 360deg
             );
-            animation: muove-glow-rotate 4s linear infinite;
+            animation: muove-glow-rotate 3.2s linear infinite;
             z-index: 0;
             pointer-events: none;
           }
 
-          /* Resplandor ambiental exterior (Aura) con los colores de DataNE */
+          /* Resplandor 3D ambiental exterior potente (Aura Vívido) */
           :host::after {
             content: '';
             position: absolute;
@@ -208,26 +211,32 @@
             background: conic-gradient(
               from 0deg,
               transparent 0deg,
-              transparent 220deg,
-              rgba(127, 53, 178, 0.6) 270deg,
-              #7F35B2 310deg,
-              #ff5757 345deg,
+              transparent 140deg,
+              rgba(127, 53, 178, 0.8) 200deg,
+              #7F35B2 260deg,
+              #ff5757 320deg,
               #7F35B2 360deg
             );
-            animation: muove-glow-rotate 4s linear infinite;
-            filter: blur(12px);
-            opacity: 0.75;
+            animation: muove-glow-rotate 3.2s linear infinite;
+            filter: blur(14px);
+            opacity: 0.95;
             z-index: 0;
             pointer-events: none;
           }
-
 
           .widget-inner-box {
             position: relative;
             z-index: 1;
             width: 100%;
             background: #09090b;
-            border-radius: 16px;
+            border-radius: 17px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            /* Bisel 3D neomórfico interior */
+            box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.15), inset 0 -3px 10px rgba(0, 0, 0, 0.85);
+          }
+
             overflow: hidden;
             display: flex;
             flex-direction: column;
