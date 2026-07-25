@@ -84,6 +84,7 @@ export default function ProdeDataeNePage() {
   const [jornadas, setJornadas] = useState<string[]>([]);
   const [selectedJornada, setSelectedJornada] = useState<string>("");
   const [predictions, setPredictions] = useState<Record<string, { local: number; visitante: number }>>({});
+  const [savedPredictions, setSavedPredictions] = useState<Record<string, { local: number; visitante: number }>>({});
   
   // Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -216,6 +217,34 @@ export default function ProdeDataeNePage() {
   }
 
   useEffect(() => {
+    if (user) {
+      fetchUserPredictions(user.id);
+    } else {
+      setSavedPredictions({});
+    }
+  }, [user]);
+
+  async function fetchUserPredictions(participanteId: string) {
+    try {
+      const res = await fetch(`/api/prode/predict?participante-id=${participanteId}`);
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.pronosticos)) {
+        const savedMap: Record<string, { local: number; visitante: number }> = {};
+        data.pronosticos.forEach((item: any) => {
+          if (item.partido_id) {
+            savedMap[item.partido_id] = {
+              local: Number(item.goles_local_pronostico || 0),
+              visitante: Number(item.goles_visitante_pronostico || 0),
+            };
+          }
+        });
+        setSavedPredictions(savedMap);
+        setPredictions((prev) => ({ ...savedMap, ...prev }));
+      }
+    } catch (e) {}
+  }
+
+  useEffect(() => {
     if (activeTab === "ranking") {
       fetchLeaderboard();
     } else if (activeTab === "amigos") {
@@ -295,6 +324,7 @@ export default function ProdeDataeNePage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        setSavedPredictions((prev) => ({ ...prev, ...predictions }));
         setProdeMsg({ type: "success", text: "¡Tus pronósticos se guardaron correctamente en DataeNe!" });
       } else {
         setProdeMsg({ type: "error", text: data.error || "La fecha se encuentra cerrada." });
@@ -581,11 +611,52 @@ export default function ProdeDataeNePage() {
               </div>
             )}
 
+            {/* Panel Resumen de Pronósticos Guardados para el usuario */}
+            {user && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    📋 Mis Pronósticos Cargados ({selectedJornada || "Fecha"})
+                  </span>
+                  <span className="text-[11px] font-extrabold text-[#7F35B2] bg-[#7F35B2]/10 px-2.5 py-0.5 rounded-full">
+                    {filteredPartidos.filter((p) => savedPredictions[p.id]).length} de {filteredPartidos.length} Cargados
+                  </span>
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto pt-1 no-scrollbar">
+                  {filteredPartidos.map((p) => {
+                    const saved = savedPredictions[p.id];
+                    return (
+                      <div
+                        key={p.id}
+                        className={`shrink-0 text-[11px] px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 border transition-all ${
+                          saved
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                            : "bg-white border-slate-200 text-slate-400"
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${saved ? "bg-emerald-500" : "bg-slate-300"}`}></span>
+                        <span className="font-extrabold">{p.equipo_local.nombre.split(" ")[0]}</span>
+                        <span className="font-black text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-xs">
+                          {saved ? `${saved.local} - ${saved.visitante}` : "VS"}
+                        </span>
+                        <span className="font-extrabold">{p.equipo_visitante.nombre.split(" ")[0]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredPartidos.map((p) => {
                 const pred = predictions[p.id] || { local: 0, visitante: 0 };
+                const saved = savedPredictions[p.id];
+                const isSaved = saved && saved.local === pred.local && saved.visitante === pred.visitante;
+                const isModified = saved && (saved.local !== pred.local || saved.visitante !== pred.visitante);
+
                 return (
-                  <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 hover:border-[#EF426F] transition-all flex flex-col justify-between gap-3 shadow-sm">
+                  <div key={p.id} className={`bg-white border rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between gap-3 shadow-sm ${isSaved ? "border-emerald-200 hover:border-emerald-400" : "border-slate-200 hover:border-[#EF426F]"}`}>
                     {/* Header con Liga, Día/Hora y Jornada */}
                     <div className="flex justify-between items-center text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2.5 gap-2 flex-wrap">
                       <span className="truncate max-w-[140px] sm:max-w-none">{p.liga_nombre}</span>
@@ -635,6 +706,23 @@ export default function ProdeDataeNePage() {
                           <button onClick={() => handleScoreChange(p.id, "visitante", 1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">+</button>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Estado del Pronóstico del Usuario */}
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-extrabold">
+                      {isSaved ? (
+                        <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1 w-full justify-center">
+                          ✅ Pronóstico Guardado: {saved.local} - {saved.visitante}
+                        </span>
+                      ) : isModified ? (
+                        <span className="text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1 w-full justify-center">
+                          ⚠️ Cambios sin guardar (Guardá abajo)
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-normal text-center w-full">
+                          Sin pronóstico guardado aún
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
