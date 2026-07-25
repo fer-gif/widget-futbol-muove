@@ -481,11 +481,11 @@ export default function ProdeDataeNePage() {
       </div>
 
       <main className="max-w-5xl mx-auto w-full px-4 py-4 flex-grow">
-        {/* Navigation Tabs Bar con 4 Pestañas Oficiales y Scroll Responsive en Móvil */}
-        <div className="flex bg-[#7F35B2] p-1 mb-3 max-w-4xl mx-auto shadow-md rounded overflow-x-auto no-scrollbar">
+        {/* Navigation Tabs Bar: Grid 2x2 en móviles / Flex 1 fila en computadoras */}
+        <div className="grid grid-cols-2 md:flex bg-[#7F35B2] p-1.5 mb-4 max-w-4xl mx-auto shadow-md rounded-xl gap-1">
           <button
             onClick={() => setActiveTab("fixture")}
-            className={`flex-1 min-w-[90px] py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+            className={`md:flex-1 py-2.5 px-2 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all text-center rounded-lg ${
               activeTab === "fixture" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -493,7 +493,7 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("ranking")}
-            className={`flex-1 min-w-[110px] py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+            className={`md:flex-1 py-2.5 px-2 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all text-center rounded-lg ${
               activeTab === "ranking" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -501,7 +501,7 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("amigos")}
-            className={`flex-1 min-w-[100px] py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+            className={`md:flex-1 py-2.5 px-2 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all text-center rounded-lg ${
               activeTab === "amigos" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
@@ -509,7 +509,7 @@ export default function ProdeDataeNePage() {
           </button>
           <button
             onClick={() => setActiveTab("info")}
-            className={`flex-1 min-w-[100px] py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+            className={`md:flex-1 py-2.5 px-2 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all text-center rounded-lg ${
               activeTab === "info" ? "bg-[#EF426F] text-white shadow-sm" : "text-white/80 hover:bg-[#EF426F]/40"
             }`}
           >
