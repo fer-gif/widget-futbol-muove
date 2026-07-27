@@ -1095,7 +1095,7 @@ export default function ProdeDataeNePage() {
         {/* TAB 4: INFO DEL TORNEO (TABLAS DE POSICIONES ZONA A Y ZONA B) */}
         {activeTab === "info" && (
           <div className="space-y-6 max-w-4xl mx-auto">
-            {/* Header, Zona Switcher & Download Button */}
+            {/* Header & Zona Switcher */}
             <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 flex-wrap gap-4 shadow-sm">
               <div>
                 <h2 className="text-base font-black text-slate-900">Tablas Oficiales de Posiciones</h2>
@@ -1123,13 +1123,6 @@ export default function ProdeDataeNePage() {
                 >
                   ZONA B
                 </button>
-                <button
-                  onClick={handleDownloadTableImage}
-                  disabled={downloadingImage}
-                  className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 shadow-sm active:scale-95 disabled:opacity-50"
-                >
-                  {downloadingImage ? "⏳ Generando..." : "📸 Descargar Imagen (PNG)"}
-                </button>
               </div>
             </div>
 
@@ -1152,9 +1145,6 @@ export default function ProdeDataeNePage() {
                     </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-black bg-[#7F35B2] text-white px-3 py-1 rounded-full uppercase tracking-wider">
-                  dataene.com.ar
-                </span>
               </div>
 
               <div className="overflow-x-auto">
@@ -1207,6 +1197,17 @@ export default function ProdeDataeNePage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Botón de Descarga Ubicado Debajo a la Derecha de la Tabla */}
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={handleDownloadTableImage}
+                disabled={downloadingImage}
+                className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              >
+                {downloadingImage ? "Generando..." : "Descargar imagen (PNG)"}
+              </button>
             </div>
           </div>
         )}
