@@ -260,6 +260,22 @@ export async function GET(request: NextRequest) {
     }
 
 
+    const rawSec = configGlobal.color_secundario || "#00E676";
+    let colorSec = rawSec;
+    let colorFondoTarjeta = "#121214";
+    let colorTextoPrincipal = "#f4f4f5";
+    let colorTextoSecundario = "#a1a1aa";
+    let fuenteFamilia = "sans-serif";
+
+    if (rawSec.includes("|")) {
+      const p = rawSec.split("|");
+      colorSec = p[0] || "#00E676";
+      colorFondoTarjeta = p[1] || "#121214";
+      colorTextoPrincipal = p[2] || "#f4f4f5";
+      colorTextoSecundario = p[3] || "#a1a1aa";
+      fuenteFamilia = p[4] || "sans-serif";
+    }
+
     const nombreMedioClean = (cliente?.nombre_medio || "").toLowerCase();
     const esDataNE = nombreMedioClean.includes("datane") || nombreMedioClean.includes("dataene");
     const mostrarProde = esDataNE || Boolean((configGlobal as any)?.mostrar_prode);
@@ -270,7 +286,11 @@ export async function GET(request: NextRequest) {
         nombre_medio: cliente.nombre_medio,
         estilo: {
           color_primario: configGlobal.color_primario,
-          color_secundario: configGlobal.color_secundario,
+          color_secundario: colorSec,
+          color_fondo_tarjeta: colorFondoTarjeta,
+          color_texto_principal: colorTextoPrincipal,
+          color_texto_secundario: colorTextoSecundario,
+          fuente_familia: fuenteFamilia,
           logo_medio_url: configGlobal.logo_medio_url,
           mostrar_escudos: configGlobal.mostrar_escudos,
           mostrar_prode: mostrarProde

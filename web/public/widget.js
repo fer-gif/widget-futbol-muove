@@ -161,8 +161,35 @@
       const sliderBefore = this.shadowRoot.getElementById("slider");
       const savedScrollLeft = sliderBefore ? sliderBefore.scrollLeft : 0;
 
-      const primaryColor = this.estilo.color_primario || "#121214";
-      const secondaryColor = this.estilo.color_secundario || "#00E676";
+      const primaryColor = this.estilo.color_primario || this.getAttribute("primary-color") || "#121214";
+      const rawSecondary = this.estilo.color_secundario || this.getAttribute("secondary-color") || "#00E676";
+      
+      let secondaryColor = rawSecondary;
+      let cardBgColor = this.estilo.color_fondo_tarjeta || this.getAttribute("card-bg-color") || "#121214";
+      let mainTextColor = this.estilo.color_texto_principal || this.getAttribute("main-text-color") || "#f4f4f5";
+      let subTextColor = this.estilo.color_texto_secundario || this.getAttribute("sub-text-color") || "#a1a1aa";
+      let fuenteFamilia = this.estilo.fuente_familia || this.getAttribute("font-family") || "sans-serif";
+
+      if (rawSecondary.includes("|")) {
+        const parts = rawSecondary.split("|");
+        secondaryColor = parts[0] || "#00E676";
+        cardBgColor = parts[1] || cardBgColor;
+        mainTextColor = parts[2] || mainTextColor;
+        subTextColor = parts[3] || subTextColor;
+        fuenteFamilia = parts[4] || fuenteFamilia;
+      }
+
+      let fontFamilyCss = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      if (fuenteFamilia === "serif") {
+        fontFamilyCss = "Georgia, Cambria, 'Times New Roman', Times, serif";
+      } else if (fuenteFamilia === "montserrat") {
+        fontFamilyCss = "'Montserrat', 'Outfit', system-ui, sans-serif";
+      } else if (fuenteFamilia === "inter") {
+        fontFamilyCss = "'Inter', 'Roboto', system-ui, sans-serif";
+      } else if (fuenteFamilia === "poppins") {
+        fontFamilyCss = "'Poppins', 'Rubik', system-ui, sans-serif";
+      }
+
       const diarioLogo = this.estilo.logo_medio_url;
       const nombreMedio = this.getAttribute("client-name") || "Diario DataNE";
       const clientId = this.getAttribute("client-id") || "";
@@ -179,7 +206,7 @@
             display: flex;
             flex-direction: column;
             width: 100%;
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: ${fontFamilyCss};
             box-sizing: border-box;
             position: relative;
             border-radius: 20px;
@@ -305,7 +332,7 @@
           .slider-container::-webkit-scrollbar { display: none; }
 
           .match-card {
-            background: #121214;
+            background: ${cardBgColor};
             border: 1px solid #27272a;
             border-radius: 12px;
             min-width: 300px;
@@ -328,6 +355,7 @@
             padding: 6px 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            font-family: ${fontFamilyCss};
           }
           .card-sub-bar {
             background: #09090b;
@@ -336,9 +364,10 @@
             justify-content: space-between;
             align-items: center;
             padding: 6px 12px;
-            color: #a1a1aa;
+            color: ${subTextColor};
             font-size: 9.5px;
             font-weight: 700;
+            font-family: ${fontFamilyCss};
           }
           
           .card-body {
@@ -346,7 +375,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 16px 12px;
-            background: #121214;
+            background: ${cardBgColor};
           }
           .team-block {
             display: flex; flex-direction: column; align-items: center; gap: 6px; width: 38%; text-align: center;
@@ -358,8 +387,9 @@
           }
           .team-block:hover img { transform: scale(1.1); }
           .team-name {
-            color: #f4f4f5; font-size: 10px; font-weight: 700; text-transform: uppercase;
+            color: ${mainTextColor}; font-size: 10px; font-weight: 700; text-transform: uppercase;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+            font-family: ${fontFamilyCss};
           }
 
           .nav-btn {
@@ -493,7 +523,7 @@
                 <img src="${resolveLogoUrl(p.equipo_local.logo)}" alt="" />
                 <span class="team-name">${p.equipo_local.nombre}</span>
               </div>
-              <div style="color:#fff; font-size:16px; font-weight:900;">
+              <div style="color:${mainTextColor}; font-size:16px; font-weight:900; font-family:${fontFamilyCss};">
                 ${showGoals ? `${p.goles_local} - ${p.goles_visitante}` : "VS"}
               </div>
               <div class="team-block">

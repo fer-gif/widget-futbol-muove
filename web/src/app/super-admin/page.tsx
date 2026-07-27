@@ -99,7 +99,11 @@ export default function SuperAdmin() {
   // States para configuración visual de widgets de clientes
   const [editingConfigClienteId, setEditingConfigClienteId] = useState<string | null>(null);
   const [configColorPrimario, setConfigColorPrimario] = useState("#121214");
-  const [configColorSecundario, setConfigColorSecundario] = useState("#ff7900");
+  const [configColorSecundario, setConfigColorSecundario] = useState("#00E676");
+  const [configColorFondoTarjeta, setConfigColorFondoTarjeta] = useState("#121214");
+  const [configColorTextoPrincipal, setConfigColorTextoPrincipal] = useState("#f4f4f5");
+  const [configColorTextoSecundario, setConfigColorTextoSecundario] = useState("#a1a1aa");
+  const [configFuenteFamilia, setConfigFuenteFamilia] = useState("sans-serif");
   const [configLogoUrl, setConfigLogoUrl] = useState("");
   const [configLogoFile, setConfigLogoFile] = useState<File | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -266,7 +270,11 @@ export default function SuperAdmin() {
   async function loadClienteConfig(clienteId: string) {
     setEditingConfigClienteId(clienteId);
     setConfigColorPrimario("#121214");
-    setConfigColorSecundario("#ff7900");
+    setConfigColorSecundario("#00E676");
+    setConfigColorFondoTarjeta("#121214");
+    setConfigColorTextoPrincipal("#f4f4f5");
+    setConfigColorTextoSecundario("#a1a1aa");
+    setConfigFuenteFamilia("sans-serif");
     setConfigLogoUrl("");
     setConfigLogoFile(null);
 
@@ -280,9 +288,20 @@ export default function SuperAdmin() {
     if (error) {
       console.error("Error al cargar configuración:", error);
     } else if (data) {
-      setConfigColorPrimario(data.color_primario);
-      setConfigColorSecundario(data.color_secundario);
+      setConfigColorPrimario(data.color_primario || "#121214");
       setConfigLogoUrl(data.logo_medio_url || "");
+      
+      const rawSec = data.color_secundario || "#00E676";
+      if (rawSec.includes("|")) {
+        const parts = rawSec.split("|");
+        setConfigColorSecundario(parts[0] || "#00E676");
+        setConfigColorFondoTarjeta(parts[1] || "#121214");
+        setConfigColorTextoPrincipal(parts[2] || "#f4f4f5");
+        setConfigColorTextoSecundario(parts[3] || "#a1a1aa");
+        setConfigFuenteFamilia(parts[4] || "sans-serif");
+      } else {
+        setConfigColorSecundario(rawSec);
+      }
     }
   }
 
@@ -320,11 +339,13 @@ export default function SuperAdmin() {
         .is("liga_id", null)
         .maybeSingle();
 
+      const payloadColorSecundario = `${configColorSecundario}|${configColorFondoTarjeta}|${configColorTextoPrincipal}|${configColorTextoSecundario}|${configFuenteFamilia}`;
+
       const payload = {
         cliente_id: editingConfigClienteId,
         liga_id: null,
         color_primario: configColorPrimario,
-        color_secundario: configColorSecundario,
+        color_secundario: payloadColorSecundario,
         logo_medio_url: logoUrl || null,
         mostrar_escudos: true
       };
@@ -899,7 +920,7 @@ export default function SuperAdmin() {
                             <h4 className="text-sm font-bold text-[#ff7900]">Personalizar Widget para {cliente.nombre_medio}</h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div>
-                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color de Fondo Sponsor (Hex)</label>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Fondo Panel Izquierdo (Sponsor)</label>
                                 <div className="flex gap-2">
                                   <input
                                     type="color"
@@ -911,12 +932,13 @@ export default function SuperAdmin() {
                                     type="text"
                                     value={configColorPrimario}
                                     onChange={e => setConfigColorPrimario(e.target.value)}
-                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none"
+                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none font-mono"
                                   />
                                 </div>
                               </div>
+
                               <div>
-                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color de Acento Detalles (Hex)</label>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Acento (Bordes & Detalle)</label>
                                 <div className="flex gap-2">
                                   <input
                                     type="color"
@@ -928,9 +950,78 @@ export default function SuperAdmin() {
                                     type="text"
                                     value={configColorSecundario}
                                     onChange={e => setConfigColorSecundario(e.target.value)}
-                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none"
+                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none font-mono"
                                   />
                                 </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Fondo de Tarjeta de Partido</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="color"
+                                    value={configColorFondoTarjeta}
+                                    onChange={e => setConfigColorFondoTarjeta(e.target.value)}
+                                    className="w-10 h-10 border-0 bg-transparent cursor-pointer rounded"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={configColorFondoTarjeta}
+                                    onChange={e => setConfigColorFondoTarjeta(e.target.value)}
+                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none font-mono"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Texto Principal (Equipos & Goles)</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="color"
+                                    value={configColorTextoPrincipal}
+                                    onChange={e => setConfigColorTextoPrincipal(e.target.value)}
+                                    className="w-10 h-10 border-0 bg-transparent cursor-pointer rounded"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={configColorTextoPrincipal}
+                                    onChange={e => setConfigColorTextoPrincipal(e.target.value)}
+                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none font-mono"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Texto Secundario (Detalles & Fecha)</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="color"
+                                    value={configColorTextoSecundario}
+                                    onChange={e => setConfigColorTextoSecundario(e.target.value)}
+                                    className="w-10 h-10 border-0 bg-transparent cursor-pointer rounded"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={configColorTextoSecundario}
+                                    onChange={e => setConfigColorTextoSecundario(e.target.value)}
+                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none font-mono"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Tipografía / Tipo de Letra</label>
+                                <select
+                                  value={configFuenteFamilia}
+                                  onChange={e => setConfigFuenteFamilia(e.target.value)}
+                                  className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none font-semibold"
+                                >
+                                  <option value="sans-serif">Moderno Sans (System Default)</option>
+                                  <option value="inter">Inter / Roboto (Limpio & Elegante)</option>
+                                  <option value="montserrat">Montserrat / Outfit (Deportivo Bold)</option>
+                                  <option value="poppins">Poppins / Rubik (Urbano & Moderno)</option>
+                                  <option value="serif">Diario Tradicional / Prensa (Serif Classic)</option>
+                                </select>
                               </div>
                             </div>
 
@@ -956,11 +1047,11 @@ export default function SuperAdmin() {
                             {/* Previsualización en Tiempo Real del Widget */}
                             <div className="border-t border-[#27272a] pt-4 mt-2 space-y-2">
                               <div className="flex justify-between items-center">
-                                <span className="text-xs font-bold text-[#ff7900]">👁️ Previsualización en Tiempo Real del Widget ({cliente.nombre_medio})</span>
+                                <span className="text-xs font-bold text-[#ff7900]">👁️ Previsualización en Tiempo Real ({cliente.nombre_medio})</span>
                                 <span className="text-[10px] text-zinc-500 font-mono">ID: {cliente.id}</span>
                               </div>
                               <p className="text-[11px] text-zinc-400">
-                                Marcadores reales en vivo y prueba estética del widget para vendérselo o mostrárselo al diario:
+                                Los cambios en colores y tipografía se reflejan al instante en la vista previa:
                               </p>
                               <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 shadow-inner">
                                 <futbol-widget
@@ -968,6 +1059,10 @@ export default function SuperAdmin() {
                                   client-name={cliente.nombre_medio}
                                   primary-color={configColorPrimario}
                                   secondary-color={configColorSecundario}
+                                  card-bg-color={configColorFondoTarjeta}
+                                  main-text-color={configColorTextoPrincipal}
+                                  sub-text-color={configColorTextoSecundario}
+                                  font-family={configFuenteFamilia}
                                 />
                               </div>
                             </div>
