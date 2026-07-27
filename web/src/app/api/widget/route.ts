@@ -315,6 +315,10 @@ export async function GET(request: NextRequest) {
     }
 
 
+    const nombreMedioClean = (cliente?.nombre_medio || "").toLowerCase();
+    const esDataNE = nombreMedioClean.includes("datane") || nombreMedioClean.includes("dataene");
+    const mostrarProde = esDataNE || Boolean((configGlobal as any)?.mostrar_prode);
+
     return NextResponse.json(
       {
         success: true,
@@ -323,7 +327,8 @@ export async function GET(request: NextRequest) {
           color_primario: configGlobal.color_primario,
           color_secundario: configGlobal.color_secundario,
           logo_medio_url: configGlobal.logo_medio_url,
-          mostrar_escudos: configGlobal.mostrar_escudos
+          mostrar_escudos: configGlobal.mostrar_escudos,
+          mostrar_prode: mostrarProde
         },
         partidos: partidosResultado
       },
