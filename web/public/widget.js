@@ -486,7 +486,7 @@
             <div class="card-top-bar">${p.liga_nombre}</div>
             <div class="card-sub-bar">
               <span>${esLive ? `<span style="color:#22c55e; font-weight:bold;">● EN VIVO</span>` : esFinalizado ? "FINALIZADO" : `📅 ${fechaHoraText}`}</span>
-              ${p.jornada ? `<span style="color:#EF426F; font-weight:800;">${p.jornada}</span>` : ""}
+              ${p.jornada ? `<span style="color:#d4d4d8; font-weight:700;">${p.jornada}</span>` : ""}
             </div>
             <div class="card-body">
               <div class="team-block">
