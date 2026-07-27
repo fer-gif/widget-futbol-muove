@@ -84,28 +84,34 @@
 </head>
 <body>
   <div class="container">
-    <h1>DIARIO DATANE <span>PREVIEW WIDGET & PRODE</span></h1>
-    <p class="desc">Entorno de simulación en vivo para probar el widget embebido en DataNE.</p>
+    <h1>MUOVE WIDGET <span>DEMO COMERCIAL</span></h1>
+    <p class="desc">Simulador interactivo de marcadores en vivo para diarios y portales de noticias.</p>
     
     <div class="controls-bar">
       <div>
-        <label>Medio Digital: <span style="color:#ff7900;">Diario DataNE</span></label>
+        <label>Nombre de tu Diario: </label>
+        <input type="text" id="input-client-name" value="Tu Diario Noticias" style="background:#18181b; border:1px solid #27272a; color:#fff; padding:6px 12px; border-radius:8px; font-size:12px;" />
       </div>
 
-      <div style="font-size: 12px; color: #a1a1aa;">
-        🟢 Script: <code>/widget.js</code> cargado
+      <div>
+        <label>Color de Marca: </label>
+        <input type="color" id="input-secondary-color" value="#00E676" style="border:0; background:transparent; cursor:pointer; vertical-align:middle;" />
+      </div>
+
+      <div style="font-size: 12px;">
+        <a href="/demo" style="color:#00E676; text-decoration:none; font-weight:bold;">🚀 Ver Landing Comercial Completa ➔</a>
       </div>
     </div>
 
     <div class="widget-box">
-      <div id="widget-target">Cargando widget DataNE...</div>
+      <div id="widget-target">Cargando widget interactivo de demostración...</div>
     </div>
 
     <div class="info-card">
-      <strong>✨ Características habilitadas en esta previsualización:</strong><br>
-      • <strong>⚽ En Vivo:</strong> Carrusel responsivo con marca oficial DataNE.<br>
-      • <strong>🔥 Jugar al Prode:</strong> Pronósticos deportivos y ligas privadas para los lectores de DataNE.<br>
-      • <strong>🏆 Cómputo Automático:</strong> Los puntos se actualizan solos al finalizar cada encuentro en el Admin.
+      <strong>✨ Ventajas para tu Diario Digital:</strong><br>
+      • <strong>⚡ 0% Carga de Trabajo:</strong> Nosotros alimentamos los marcadores y fixture en tiempo real.<br>
+      • <strong>📱 100% Adaptable:</strong> Funciona perfectamente en celulares y computadoras.<br>
+      • <strong>🎨 Tu Identidad:</strong> Personalizable con tus colores institucionales y logo.
     </div>
   </div>
 
@@ -113,17 +119,23 @@
     const scriptLoader = document.getElementById("widget-script-loader");
     scriptLoader.src = window.location.origin + "/widget.js";
 
+    const inputName = document.getElementById("input-client-name");
+    const inputColor = document.getElementById("input-secondary-color");
+
     scriptLoader.onload = () => {
-      console.log("Script widget.js cargado correctamente para DataNE.");
       renderWidget();
     };
+
+    inputName.addEventListener("input", renderWidget);
+    inputColor.addEventListener("input", renderWidget);
 
     function renderWidget() {
       const widgetTarget = document.getElementById("widget-target");
       widgetTarget.innerHTML = "";
 
       const widgetEl = document.createElement("futbol-widget");
-      widgetEl.setAttribute("client-name", "Diario DataNE");
+      widgetEl.setAttribute("client-name", inputName.value || "Tu Diario");
+      widgetEl.setAttribute("secondary-color", inputColor.value || "#00E676");
 
       widgetTarget.appendChild(widgetEl);
     }
