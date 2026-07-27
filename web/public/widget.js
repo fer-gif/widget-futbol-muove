@@ -400,6 +400,55 @@
           .muove-credits { display: flex; align-items: center; gap: 6px; text-decoration: none; opacity: 0.7; }
           .muove-credits span { color: #71717a; font-size: 8px; font-weight: 700; }
           .muove-credits img { height: 9.5px; }
+
+          /* Reglas 100% Responsive para Pantallas Móviles y Celulares (< 640px) */
+          @media (max-width: 640px) {
+            .widget-wrapper {
+              flex-direction: column !important;
+              min-height: auto !important;
+            }
+            .diario-panel {
+              width: 100% !important;
+              height: 42px !important;
+              min-height: 42px !important;
+              padding: 6px 16px !important;
+              border-right: none !important;
+              border-bottom: 1px solid #27272a !important;
+              flex-direction: row !important;
+              justify-content: center !important;
+            }
+            .diario-panel img {
+              max-height: 28px !important;
+            }
+            .slider-container {
+              padding: 12px 34px !important;
+              gap: 10px !important;
+            }
+            .match-card {
+              min-width: 250px !important;
+              width: 82vw !important;
+              max-width: 320px !important;
+            }
+            .prode-promo-bar {
+              flex-direction: column !important;
+              text-align: center !important;
+              gap: 6px !important;
+              padding: 10px 12px !important;
+            }
+            .prode-promo-bar span {
+              font-size: 10px !important;
+            }
+            .prode-promo-link {
+              font-size: 10.5px !important;
+            }
+            .nav-btn {
+              width: 26px !important;
+            }
+            .nav-btn svg {
+              width: 12px !important;
+              height: 12px !important;
+            }
+          }
         </style>
       `;
 
