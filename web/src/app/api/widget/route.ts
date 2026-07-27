@@ -124,13 +124,21 @@ export async function GET(request: NextRequest) {
         .in("liga_id", ligasAutorizadas);
 
       if (!partidosError && partidosFound) {
-        dataPartidos = partidosFound;
+        if (clientId && isUuid(clientId)) {
+          dataPartidos = partidosFound.filter(p => !p.cliente_id || p.cliente_id === "todos" || p.cliente_id === clientId);
+        } else {
+          dataPartidos = partidosFound;
+        }
       }
     } else {
       // Fallback: traer todos los partidos existentes
       const { data: todosPartidos } = await supabase.from("partidos").select("*");
       if (todosPartidos) {
-        dataPartidos = todosPartidos;
+        if (clientId && isUuid(clientId)) {
+          dataPartidos = todosPartidos.filter(p => !p.cliente_id || p.cliente_id === "todos" || p.cliente_id === clientId);
+        } else {
+          dataPartidos = todosPartidos;
+        }
       }
     }
 

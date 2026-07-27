@@ -26,6 +26,7 @@ type Partido = {
   fecha_hora?: string | null;
   minuto_actual: number | null;
   liga_id: string;
+  cliente_id?: string | null;
   equipo_local?: Equipo;
   equipo_visitante?: Equipo;
   jornada?: string | null;
@@ -52,31 +53,23 @@ export default function JournalistCMS() {
     liga_id: "",
     equipo_local_id: "",
     equipo_visitante_id: "",
-    fecha_hora: ""
+    fecha_hora: "",
+    destinatario: "todos"
   });
 
   useEffect(() => {
     async function initDataNE() {
       setLoading(true);
       try {
-        // Buscar cliente DataNE o fallback al primer cliente activo
-        const { data: dataClientes } = await supabase
+        // Cargar todos los clientes de medios registrados
+        const { data: allClientes } = await supabase
           .from("clientes")
           .select("id, nombre_medio")
-          .ilike("nombre_medio", "%datane%");
+          .order("nombre_medio");
         
-        let targetClient = dataClientes && dataClientes.length > 0 ? dataClientes[0] : null;
+        setClientes(allClientes || []);
 
-        if (!targetClient) {
-          const { data: anyClientes } = await supabase
-            .from("clientes")
-            .select("id, nombre_medio")
-            .limit(1);
-          if (anyClientes && anyClientes.length > 0) {
-            targetClient = anyClientes[0];
-          }
-        }
-
+        let targetClient = allClientes && allClientes.length > 0 ? allClientes[0] : null;
         const clientId = targetClient ? targetClient.id : "datane-default-id";
         setSelectedClientId(clientId);
         setIsAuthenticated(true);
@@ -100,7 +93,7 @@ export default function JournalistCMS() {
           await fetchPartidos(firstLigaId, clientId, dataEquipos || []);
         }
       } catch (err) {
-        console.error("Error al inicializar DataNE:", err);
+        console.error("Error al inicializar panel de periodistas:", err);
       } finally {
         setLoading(false);
       }
@@ -248,8 +241,10 @@ export default function JournalistCMS() {
 
   async function handleCreatePartido(e: React.FormEvent) {
     e.preventDefault();
-    const { liga_id, equipo_local_id, equipo_visitante_id, fecha_hora } = newPartido;
+    const { liga_id, equipo_local_id, equipo_visitante_id, fecha_hora, destinatario } = newPartido;
     if (!liga_id || !equipo_local_id || !equipo_visitante_id) return;
+
+    const targetClienteId = destinatario === "todos" ? null : destinatario;
 
     const { data, error } = await supabase
       .from("partidos")
@@ -259,18 +254,32 @@ export default function JournalistCMS() {
         equipo_visitante_id,
         fecha_hora: fecha_hora ? new Date(fecha_hora).toISOString() : null,
         estado_partido: "programado",
-        cliente_id: selectedClientId
+        cliente_id: targetClienteId
       }])
       .select();
 
     if (error) {
       alert("Error al programar partido: " + error.message);
     } else {
-      setNewPartido({ liga_id: "", equipo_local_id: "", equipo_visitante_id: "", fecha_hora: "" });
+      setNewPartido({ liga_id: "", equipo_local_id: "", equipo_visitante_id: "", fecha_hora: "", destinatario: "todos" });
       if (selectedLigaId === liga_id) {
         fetchPartidos(liga_id);
       }
       alert("¡Partido programado exitosamente!");
+    }
+  }
+
+  async function handleUpdateClienteDestino(partidoId: string, clienteVal: string) {
+    const targetVal = clienteVal === "todos" ? null : clienteVal;
+    const { error } = await supabase
+      .from("partidos")
+      .update({ cliente_id: targetVal })
+      .eq("id", partidoId);
+
+    if (error) {
+      alert("Error al actualizar diario destinatario: " + error.message);
+    } else {
+      setPartidos(partidos.map(p => p.id === partidoId ? { ...p, cliente_id: targetVal } : p));
     }
   }
 
@@ -534,9 +543,23 @@ export default function JournalistCMS() {
                         />
                       </div>
 
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-400 mb-2">Medio / Diario Destinatario</label>
+                        <select
+                          value={newPartido.destinatario}
+                          onChange={e => setNewPartido({ ...newPartido, destinatario: e.target.value })}
+                          className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 transition-colors font-semibold"
+                        >
+                          <option value="todos">🌐 Todos los Diarios (Global - Recomendado)</option>
+                          {clientes.map(c => (
+                            <option key={c.id} value={c.id}>📰 {c.nombre_medio}</option>
+                          ))}
+                        </select>
+                      </div>
+
                       <button
                         type="submit"
-                        className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-white font-bold py-3 rounded-xl transition-colors text-xs"
+                        className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-white font-bold py-3 rounded-xl transition-colors text-xs shadow-lg shadow-[#ff7900]/10"
                       >
                         Programar Partido
                       </button>
@@ -715,6 +738,21 @@ export default function JournalistCMS() {
                               />
                             </div>
                           </div>
+                          {/* Fila de Selección de Diario Destino */}
+                          <div className="flex items-center gap-2 pt-2 border-t border-[#27272a]/30">
+                            <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap uppercase">Diario Destino:</span>
+                            <select
+                              value={partido.cliente_id || "todos"}
+                              onChange={e => handleUpdateClienteDestino(partido.id, e.target.value)}
+                              className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
+                            >
+                              <option value="todos">🌐 Todos los Diarios (Global - Publicar a todos)</option>
+                              {clientes.map(c => (
+                                <option key={c.id} value={c.id}>📰 Solo en {c.nombre_medio}</option>
+                              ))}
+                            </select>
+                          </div>
+
                           {partido.estado_partido === "finalizado" && (
                             <p className="text-[10px] text-zinc-500 text-center font-semibold pt-1">
                               ⚠️ El partido está finalizado. Puedes editarlo si fue un error, o cambiar su estado para reabrirlo.
