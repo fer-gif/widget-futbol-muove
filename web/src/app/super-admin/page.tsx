@@ -289,19 +289,21 @@ export default function SuperAdmin() {
       console.error("Error al cargar configuración:", error);
     } else if (data) {
       setConfigColorPrimario(data.color_primario || "#121214");
-      setConfigLogoUrl(data.logo_medio_url || "");
       
       const rawSec = data.color_secundario || "#00E676";
-      if (rawSec.includes("|")) {
-        const parts = rawSec.split("|");
-        setConfigColorSecundario(parts[0] || "#00E676");
-        setConfigColorFondoTarjeta(parts[1] || "#121214");
-        setConfigColorTextoPrincipal(parts[2] || "#f4f4f5");
-        setConfigColorTextoSecundario(parts[3] || "#a1a1aa");
-        setConfigFuenteFamilia(parts[4] || "sans-serif");
-      } else {
-        setConfigColorSecundario(rawSec);
+      setConfigColorSecundario(rawSec.length <= 7 ? rawSec : "#00E676");
+      
+      let rawLogo = data.logo_medio_url || "";
+      if (rawLogo.includes("___CFG___")) {
+        const parts = rawLogo.split("___CFG___");
+        rawLogo = parts[0];
+        const cfg = parts[1] ? parts[1].split("|") : [];
+        setConfigColorFondoTarjeta(cfg[0] || "#121214");
+        setConfigColorTextoPrincipal(cfg[1] || "#f4f4f5");
+        setConfigColorTextoSecundario(cfg[2] || "#a1a1aa");
+        setConfigFuenteFamilia(cfg[3] || "sans-serif");
       }
+      setConfigLogoUrl(rawLogo);
     }
   }
 
@@ -339,14 +341,16 @@ export default function SuperAdmin() {
         .is("liga_id", null)
         .maybeSingle();
 
-      const payloadColorSecundario = `${configColorSecundario}|${configColorFondoTarjeta}|${configColorTextoPrincipal}|${configColorTextoSecundario}|${configFuenteFamilia}`;
+      const baseLogo = logoUrl ? logoUrl.split("___CFG___")[0] : "";
+      const extraConfig = `___CFG___${configColorFondoTarjeta}|${configColorTextoPrincipal}|${configColorTextoSecundario}|${configFuenteFamilia}`;
+      const finalLogoPayload = baseLogo ? `${baseLogo}${extraConfig}` : extraConfig;
 
       const payload = {
         cliente_id: editingConfigClienteId,
         liga_id: null,
-        color_primario: configColorPrimario,
-        color_secundario: payloadColorSecundario,
-        logo_medio_url: logoUrl || null,
+        color_primario: configColorPrimario.substring(0, 7),
+        color_secundario: configColorSecundario.substring(0, 7),
+        logo_medio_url: finalLogoPayload,
         mostrar_escudos: true
       };
 

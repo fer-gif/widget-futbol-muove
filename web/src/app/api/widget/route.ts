@@ -260,20 +260,24 @@ export async function GET(request: NextRequest) {
     }
 
 
-    const rawSec = configGlobal.color_secundario || "#00E676";
-    let colorSec = rawSec;
+    const colorSec = configGlobal.color_secundario || "#00E676";
     let colorFondoTarjeta = "#121214";
     let colorTextoPrincipal = "#f4f4f5";
     let colorTextoSecundario = "#a1a1aa";
     let fuenteFamilia = "sans-serif";
+    const rawLogoVal: string | null = (configGlobal as any)?.logo_medio_url || null;
+    let logoClean: string | null = rawLogoVal;
 
-    if (rawSec.includes("|")) {
-      const p = rawSec.split("|");
-      colorSec = p[0] || "#00E676";
-      colorFondoTarjeta = p[1] || "#121214";
-      colorTextoPrincipal = p[2] || "#f4f4f5";
-      colorTextoSecundario = p[3] || "#a1a1aa";
-      fuenteFamilia = p[4] || "sans-serif";
+    if (rawLogoVal && rawLogoVal.includes("___CFG___")) {
+      const parts = rawLogoVal.split("___CFG___");
+      logoClean = parts[0] || null;
+      if (parts[1]) {
+        const cfg = parts[1].split("|");
+        colorFondoTarjeta = cfg[0] || "#121214";
+        colorTextoPrincipal = cfg[1] || "#f4f4f5";
+        colorTextoSecundario = cfg[2] || "#a1a1aa";
+        fuenteFamilia = cfg[3] || "sans-serif";
+      }
     }
 
     const nombreMedioClean = (cliente?.nombre_medio || "").toLowerCase();
@@ -291,7 +295,7 @@ export async function GET(request: NextRequest) {
           color_texto_principal: colorTextoPrincipal,
           color_texto_secundario: colorTextoSecundario,
           fuente_familia: fuenteFamilia,
-          logo_medio_url: configGlobal.logo_medio_url,
+          logo_medio_url: logoClean,
           mostrar_escudos: configGlobal.mostrar_escudos,
           mostrar_prode: mostrarProde
         },

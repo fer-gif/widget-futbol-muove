@@ -190,7 +190,18 @@
         fontFamilyCss = "'Poppins', 'Rubik', system-ui, sans-serif";
       }
 
-      const diarioLogo = this.estilo.logo_medio_url;
+      let diarioLogo = this.estilo.logo_medio_url;
+      if (diarioLogo && diarioLogo.includes("___CFG___")) {
+        const parts = diarioLogo.split("___CFG___");
+        diarioLogo = parts[0] || null;
+        if (parts[1]) {
+          const cfg = parts[1].split("|");
+          cardBgColor = cfg[0] || cardBgColor;
+          mainTextColor = cfg[1] || mainTextColor;
+          subTextColor = cfg[2] || subTextColor;
+          fuenteFamilia = cfg[3] || fuenteFamilia;
+        }
+      }
       const nombreMedio = this.getAttribute("client-name") || "Diario DataNE";
       const clientId = this.getAttribute("client-id") || "";
       const prodeUrl = `${baseUrl}/prode${clientId ? `?client-id=${clientId}` : ""}`;
