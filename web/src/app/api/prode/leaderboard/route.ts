@@ -68,6 +68,11 @@ export async function GET(request: NextRequest) {
         const currentPts = userPointsMap.get(p.participante_id) || 0;
         userPointsMap.set(p.participante_id, currentPts + pts);
       });
+
+      // Actualizar la tabla prode_participantes en la base de datos Supabase para sincronizar
+      for (const [pId, pts] of userPointsMap.entries()) {
+        await supabase.from("prode_participantes").update({ puntos_totales: pts }).eq("id", pId);
+      }
     }
 
     let ranking: any[] = [];

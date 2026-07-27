@@ -217,12 +217,12 @@ export default function ProdeDataeNePage() {
   }
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       fetchUserPredictions(user.id);
     } else {
       setSavedPredictions({});
     }
-  }, [user]);
+  }, [user?.id]);
 
   async function fetchUserPredictions(participanteId: string) {
     try {
@@ -243,7 +243,7 @@ export default function ProdeDataeNePage() {
 
         if (typeof data.puntosTotales === "number") {
           setUser((prev) => {
-            if (!prev) return null;
+            if (!prev || prev.puntos_totales === data.puntosTotales) return prev;
             const updated = { ...prev, puntos_totales: data.puntosTotales };
             try {
               localStorage.setItem(`prode_user_${clientId || "demo"}`, JSON.stringify(updated));
@@ -259,11 +259,11 @@ export default function ProdeDataeNePage() {
     if (activeTab === "ranking") {
       fetchLeaderboard();
     } else if (activeTab === "amigos") {
-      if (user) {
+      if (user?.id) {
         fetchMyLeagues();
       }
     }
-  }, [activeTab, activeLeagueId, user]);
+  }, [activeTab, activeLeagueId, user?.id]);
 
   async function fetchLeaderboard() {
     try {
