@@ -43,6 +43,10 @@ export default function JournalistCMS() {
   const [loading, setLoading] = useState(true);
   const [updatingMatchId, setUpdatingMatchId] = useState<string | null>(null);
 
+  // Estados de Filtros de Partidos para el Periodista
+  const [filterEstado, setFilterEstado] = useState<"activos" | "en_vivo" | "programados" | "finalizados" | "todos">("activos");
+  const [filterJornada, setFilterJornada] = useState<string>("");
+
   // Estados de Autenticación
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
@@ -593,16 +597,151 @@ export default function JournalistCMS() {
             </div>
 
             {/* Listado de Partidos */}
-            {selectedLigaId && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-bold text-white mb-2">Partidos de la Liga ({partidos.length})</h2>
+            {selectedLigaId && (() => {
+              const jornadasDisponibles = Array.from(
+                new Set(partidos.map(p => p.jornada).filter((j): j is string => Boolean(j)))
+              );
+
+              const partidosFiltrados = partidos.filter(p => {
+                const matchState = getMatchLiveStatus(p);
                 
-                {partidos.length === 0 ? (
-                  <p className="text-zinc-500 text-xs text-center py-8 bg-[#121214] border border-[#27272a] rounded-2xl">
-                    No hay partidos programados para esta liga.
-                  </p>
-                ) : (
-                  partidos.map(partido => {
+                if (filterEstado === "activos") {
+                  if (p.estado_partido === "finalizado") return false;
+                } else if (filterEstado === "en_vivo") {
+                  if (!matchState.isLive && p.estado_partido !== "en_vivo") return false;
+                } else if (filterEstado === "programados") {
+                  if (p.estado_partido !== "programado") return false;
+                } else if (filterEstado === "finalizados") {
+                  if (p.estado_partido !== "finalizado") return false;
+                }
+
+                if (filterJornada && p.jornada !== filterJornada) {
+                  return false;
+                }
+
+                return true;
+              });
+
+              const partidosProcesados = [...partidosFiltrados].sort((a, b) => {
+                const stateA = getMatchLiveStatus(a);
+                const stateB = getMatchLiveStatus(b);
+
+                const getWeight = (p: Partido, st: any) => {
+                  if (st.isLive || p.estado_partido === "en_vivo") return 1;
+                  if (p.estado_partido === "programado") return 2;
+                  if (p.estado_partido === "finalizado") return 3;
+                  return 4;
+                };
+
+                const wA = getWeight(a, stateA);
+                const wB = getWeight(b, stateB);
+
+                if (wA !== wB) return wA - wB;
+
+                const tA = a.fecha_hora ? new Date(a.fecha_hora).getTime() : 9999999999999;
+                const tB = b.fecha_hora ? new Date(b.fecha_hora).getTime() : 9999999999999;
+
+                if (wA === 2) {
+                  return tA - tB;
+                } else {
+                  return tB - tA;
+                }
+              });
+
+              return (
+                <div className="space-y-4">
+                  {/* Barra de Filtros Inteligentes de Partidos */}
+                  <div className="bg-[#121214] border border-[#27272a] rounded-2xl p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-xs font-bold text-zinc-300 flex items-center gap-2">
+                        ⚡ Filtros Rápidos de Partidos ({partidosProcesados.length} mostrados)
+                      </span>
+                      
+                      {jornadasDisponibles.length > 0 && (
+                        <select
+                          value={filterJornada}
+                          onChange={e => setFilterJornada(e.target.value)}
+                          className="bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none font-semibold cursor-pointer"
+                        >
+                          <option value="">-- Todas las Jornadas --</option>
+                          {jornadasDisponibles.map(j => (
+                            <option key={j} value={j}>{j}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setFilterEstado("activos")}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          filterEstado === "activos"
+                            ? "bg-[#ff7900] text-white shadow-lg shadow-[#ff7900]/20"
+                            : "bg-[#09090b] text-zinc-400 border border-[#27272a] hover:text-white"
+                        }`}
+                      >
+                        🔴 En Vivo & Próximos
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFilterEstado("en_vivo")}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          filterEstado === "en_vivo"
+                            ? "bg-[#EF426F] text-white shadow-lg shadow-[#EF426F]/20"
+                            : "bg-[#09090b] text-zinc-400 border border-[#27272a] hover:text-white"
+                        }`}
+                      >
+                        🔥 Solo En Vivo
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFilterEstado("programados")}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          filterEstado === "programados"
+                            ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                            : "bg-[#09090b] text-zinc-400 border border-[#27272a] hover:text-white"
+                        }`}
+                      >
+                        📅 Programados
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFilterEstado("finalizados")}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          filterEstado === "finalizados"
+                            ? "bg-zinc-700 text-white"
+                            : "bg-[#09090b] text-zinc-400 border border-[#27272a] hover:text-white"
+                        }`}
+                      >
+                        🏁 Finalizados
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFilterEstado("todos")}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          filterEstado === "todos"
+                            ? "bg-purple-600 text-white"
+                            : "bg-[#09090b] text-zinc-400 border border-[#27272a] hover:text-white"
+                        }`}
+                      >
+                        🌐 Todos ({partidos.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  <h2 className="text-sm font-bold text-zinc-300 pt-2">Lista de Partidos ({partidosProcesados.length})</h2>
+                  
+                  {partidosProcesados.length === 0 ? (
+                    <p className="text-zinc-500 text-xs text-center py-8 bg-[#121214] border border-[#27272a] rounded-2xl">
+                      No hay partidos en esta categoría o filtro seleccionado.
+                    </p>
+                  ) : (
+                    partidosProcesados.map(partido => {
                     const matchState = getMatchLiveStatus(partido);
                     return (
                       <div 
@@ -764,7 +903,8 @@ export default function JournalistCMS() {
                   })
                 )}
               </div>
-            )}
+            );
+          })()}
           </div>
 
         </div>
