@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { toPng } from "html-to-image";
 import { supabase } from "@/lib/supabase";
 
 type Partido = {
@@ -108,6 +109,24 @@ export default function ProdeDataeNePage() {
   const [showCreateConfirmModal, setShowCreateConfirmModal] = useState<boolean>(false);
   const [lastCreatedLeague, setLastCreatedLeague] = useState<{ nombre: string; codigo: string } | null>(null);
   const [groupError, setGroupError] = useState<string>("");
+  const [downloadingImage, setDownloadingImage] = useState<boolean>(false);
+
+  async function handleDownloadTableImage() {
+    const node = document.getElementById("standings-table-card");
+    if (!node) return;
+    setDownloadingImage(true);
+    try {
+      const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2, backgroundColor: "#ffffff" });
+      const link = document.createElement("a");
+      link.download = `tabla-posiciones-zona-${selectedZona.toLowerCase()}-dataene.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Error al exportar tabla como imagen:", err);
+    } finally {
+      setDownloadingImage(false);
+    }
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1076,14 +1095,14 @@ export default function ProdeDataeNePage() {
         {/* TAB 4: INFO DEL TORNEO (TABLAS DE POSICIONES ZONA A Y ZONA B) */}
         {activeTab === "info" && (
           <div className="space-y-6 max-w-4xl mx-auto">
-            {/* Header & Zona Switcher */}
+            {/* Header, Zona Switcher & Download Button */}
             <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 flex-wrap gap-4 shadow-sm">
               <div>
                 <h2 className="text-base font-black text-slate-900">Tablas Oficiales de Posiciones</h2>
                 <p className="text-xs text-slate-500">Liga Necochea de Fútbol - Torneo de Primera</p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setSelectedZona("A")}
                   className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${
@@ -1104,14 +1123,37 @@ export default function ProdeDataeNePage() {
                 >
                   ZONA B
                 </button>
+                <button
+                  onClick={handleDownloadTableImage}
+                  disabled={downloadingImage}
+                  className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 shadow-sm active:scale-95 disabled:opacity-50"
+                >
+                  {downloadingImage ? "⏳ Generando..." : "📸 Descargar Imagen (PNG)"}
+                </button>
               </div>
             </div>
 
-            {/* Standings Table Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <div className="bg-[#7F35B2] text-white px-5 py-3 flex items-center justify-between">
-                <span className="font-black text-sm uppercase tracking-wider">
-                  TABLA DE POSICIONES - {selectedZona === "A" ? "ZONA A" : "ZONA B"}
+            {/* Standings Table Card (Elemento a capturar en la exportación PNG) */}
+            <div id="standings-table-card" className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm p-1">
+              {/* Header Banner con el Logo Oficial de DataeNe para la imagen descargada */}
+              <div className="bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png"
+                    alt="Data eNe"
+                    className="h-8 object-contain"
+                  />
+                  <div>
+                    <h3 className="font-black text-sm text-slate-900 uppercase">
+                      TABLA DE POSICIONES - {selectedZona === "A" ? "ZONA A" : "ZONA B"}
+                    </h3>
+                    <p className="text-[10px] text-slate-500 font-extrabold uppercase">
+                      Liga Necochea de Fútbol - Torneo Oficial de Primera
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black bg-[#7F35B2] text-white px-3 py-1 rounded-full uppercase tracking-wider">
+                  dataene.com.ar
                 </span>
               </div>
 
