@@ -105,8 +105,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 3. Recuperar / Restablecer PIN
+    if (action === "reset_pin") {
+      const { data: existente } = await supabase
+        .from("prode_participantes")
+        .select("id, nombre, email, puntos_totales, racha_actual, cliente_id, created_at")
+        .eq("cliente_id", clientId)
+        .eq("email", cleanEmail)
+        .single();
+
+      if (!existente) {
+        return NextResponse.json(
+          { success: false, error: "No encontramos ninguna cuenta registrada con ese email." },
+          { status: 404, headers }
+        );
+      }
+
+      const { data: actualizado, error: updateError } = await supabase
+        .from("prode_participantes")
+        .update({ pin_hash: pinHash })
+        .eq("id", existente.id)
+        .select("id, nombre, email, puntos_totales, racha_actual, cliente_id, created_at")
+        .single();
+
+      if (updateError || !actualizado) {
+        return NextResponse.json(
+          { success: false, error: "Error al restablecer tu PIN" },
+          { status: 500, headers }
+        );
+      }
+
+      return NextResponse.json(
+        { success: true, message: "PIN restablecido con éxito", usuario: actualizado },
+        { status: 200, headers }
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: "Acción no válida (usar 'login' o 'register')" },
+      { success: false, error: "Acción no válida (usar 'login', 'register' o 'reset_pin')" },
       { status: 400, headers }
     );
   } catch (err: any) {

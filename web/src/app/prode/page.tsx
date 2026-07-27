@@ -90,7 +90,7 @@ export default function ProdeDataeNePage() {
   // Auth State
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<"login" | "register" | "forgot">("login");
   const [authEmail, setAuthEmail] = useState<string>("");
   const [authPin, setAuthPin] = useState<string>("");
   const [authNombre, setAuthNombre] = useState<string>("");
@@ -340,14 +340,8 @@ export default function ProdeDataeNePage() {
     });
   }
 
-  async function handleSavePredictions() {
-    if (!user) {
-      setShowAuthModal(true);
-      setAuthMode("login");
-      setAuthError("Ingresá o registrate con tu apodo para guardar tus pronósticos.");
-      return;
-    }
-
+  async function savePredictionsWithUser(targetUser: User) {
+    if (!targetUser) return;
     setProdeMsg(null);
     const predictionsList = Object.keys(predictions).map((partidoId) => ({
       partidoId,
@@ -360,7 +354,7 @@ export default function ProdeDataeNePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          participanteId: user.id,
+          participanteId: targetUser.id,
           predictions: predictionsList,
         }),
       });
@@ -377,16 +371,27 @@ export default function ProdeDataeNePage() {
     }
   }
 
+  async function handleSavePredictions() {
+    if (!user) {
+      setShowAuthModal(true);
+      setAuthMode("login");
+      setAuthError("Ingresá o registrate con tu apodo para guardar tus pronósticos.");
+      return;
+    }
+    await savePredictionsWithUser(user);
+  }
+
   async function handleAuthSubmit(e: React.FormEvent) {
     e.preventDefault();
     setAuthError("");
 
     try {
+      const actionType = authMode === "forgot" ? "reset_pin" : authMode;
       const res = await fetch("/api/prode/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: authMode,
+          action: actionType,
           clientId: clientId || "demo-client-id",
           email: authEmail,
           pin: authPin,
@@ -396,11 +401,16 @@ export default function ProdeDataeNePage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setUser(data.usuario);
-        localStorage.setItem(`prode_user_${clientId}`, JSON.stringify(data.usuario));
+        const loggedUser = data.usuario;
+        setUser(loggedUser);
+        try {
+          localStorage.setItem(`prode_user_${clientId || "demo"}`, JSON.stringify(loggedUser));
+        } catch (e) {}
         setShowAuthModal(false);
         setAuthPin("");
-        handleSavePredictions();
+        if (Object.keys(predictions).length > 0) {
+          savePredictionsWithUser(loggedUser);
+        }
       } else {
         setAuthError(data.error || "Datos incorrectos.");
       }
@@ -1249,10 +1259,14 @@ export default function ProdeDataeNePage() {
             <div className="text-center space-y-1">
               <img src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png" alt="Data eNe" className="h-7 mx-auto object-contain mb-2" />
               <h3 className="text-lg font-black text-slate-900">
-                {authMode === "login" ? "Ingresá a tu Cuenta" : "Creá tu Perfil de Jugador"}
+                {authMode === "login" ? "Ingresá a tu Cuenta" : authMode === "register" ? "Creá tu Perfil de Jugador" : "Restablecer tu PIN"}
               </h3>
-              <p className="text-xs text-slate-500">
-                {authMode === "login" ? "Ingresá tu Email y tu PIN de 4 números." : "Elegí tu apodo y PIN para guardar tus puntos."}
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {authMode === "login"
+                  ? "Ingresá tu Email y tu PIN de 4 números."
+                  : authMode === "register"
+                  ? "Elegí tu apodo y PIN para guardar tus puntos."
+                  : "Ingresá tu Email registrado y definí un nuevo PIN de 4 números."}
               </p>
             </div>
 
@@ -1284,7 +1298,7 @@ export default function ProdeDataeNePage() {
               <input
                 type="password"
                 maxLength={4}
-                placeholder="PIN de 4 números (ej. 1234)"
+                placeholder={authMode === "forgot" ? "Nuevo PIN de 4 números (ej. 1234)" : "PIN de 4 números (ej. 1234)"}
                 value={authPin}
                 onChange={(e) => setAuthPin(e.target.value)}
                 required
@@ -1292,17 +1306,61 @@ export default function ProdeDataeNePage() {
               />
 
               <button type="submit" className="w-full bg-[#EF426F] hover:bg-[#d83760] text-white font-extrabold text-xs py-3.5 rounded-xl transition-all shadow-sm">
-                {authMode === "login" ? "Ingresar y Guardar" : "Crear Perfil y Guardar"}
+                {authMode === "login" ? "Ingresar y Guardar" : authMode === "register" ? "Crear Perfil y Guardar" : "Restablecer PIN e Ingresar"}
               </button>
             </form>
 
-            <div className="text-center">
-              <button
-                onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-                className="text-xs text-slate-500 hover:text-slate-900 underline font-medium"
-              >
-                {authMode === "login" ? "¿Primera vez? Registrate acá" : "¿Ya tenés cuenta? Iniciar Sesión"}
-              </button>
+            <div className="text-center space-y-2 pt-2 border-t border-slate-100 flex flex-col items-center">
+              {authMode === "login" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("forgot");
+                      setAuthError("");
+                    }}
+                    className="text-xs text-slate-500 hover:text-[#EF426F] font-semibold underline"
+                  >
+                    ¿Olvidaste tu PIN? Restablecelo acá
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("register");
+                      setAuthError("");
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-900 font-medium underline"
+                  >
+                    ¿Primera vez? Registrate acá
+                  </button>
+                </>
+              )}
+
+              {authMode === "register" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthError("");
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-900 font-medium underline"
+                >
+                  ¿Ya tenés cuenta? Iniciar Sesión
+                </button>
+              )}
+
+              {authMode === "forgot" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthError("");
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-900 font-medium underline"
+                >
+                  ← Volver a Iniciar Sesión
+                </button>
+              )}
             </div>
           </div>
         </div>
