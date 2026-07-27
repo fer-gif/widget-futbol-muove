@@ -43,8 +43,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Calcular puntos totales del participante en partidos finalizados
+    let puntosTotales = 0;
+    (pronosticos || []).forEach((p: any) => {
+      const match = p.partidos;
+      if (match && match.estado_partido === "finalizado" && match.goles_local !== null && match.goles_visitante !== null) {
+        const pL = Number(p.goles_local_pred ?? 0);
+        const pV = Number(p.goles_visitante_pred ?? 0);
+        const rL = Number(match.goles_local);
+        const rV = Number(match.goles_visitante);
+
+        if (pL === rL && pV === rV) {
+          puntosTotales += 3;
+        } else {
+          const pDiff = pL - pV;
+          const rDiff = rL - rV;
+          if ((pDiff > 0 && rDiff > 0) || (pDiff < 0 && rDiff < 0) || (pDiff === 0 && rDiff === 0)) {
+            puntosTotales += 1;
+          }
+        }
+      }
+    });
+
     return NextResponse.json(
-      { success: true, pronosticos: pronosticos || [] },
+      { success: true, pronosticos: pronosticos || [], puntosTotales },
       { status: 200, headers }
     );
   } catch (err: any) {

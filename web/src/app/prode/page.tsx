@@ -240,6 +240,17 @@ export default function ProdeDataeNePage() {
         });
         setSavedPredictions(savedMap);
         setPredictions((prev) => ({ ...savedMap, ...prev }));
+
+        if (typeof data.puntosTotales === "number") {
+          setUser((prev) => {
+            if (!prev) return null;
+            const updated = { ...prev, puntos_totales: data.puntosTotales };
+            try {
+              localStorage.setItem(`prode_user_${clientId || "demo"}`, JSON.stringify(updated));
+            } catch (e) {}
+            return updated;
+          });
+        }
       }
     } catch (e) {}
   }
@@ -268,6 +279,19 @@ export default function ProdeDataeNePage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setLeaderboard(data.ranking || []);
+        if (user && data.ranking) {
+          const me = data.ranking.find((r: any) => r.id === user.id);
+          if (me && typeof me.puntos_totales === "number") {
+            setUser((prev) => {
+              if (!prev || prev.puntos_totales === me.puntos_totales) return prev;
+              const updated = { ...prev, puntos_totales: me.puntos_totales };
+              try {
+                localStorage.setItem(`prode_user_${clientId || "demo"}`, JSON.stringify(updated));
+              } catch (e) {}
+              return updated;
+            });
+          }
+        }
       }
     } catch (e) {}
   }

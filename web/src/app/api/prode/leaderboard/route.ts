@@ -23,13 +23,60 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 0. Recalcular puntos dinámicos en base a partidos finalizados
+    const { data: finishedMatches } = await supabase
+      .from("partidos")
+      .select("id, goles_local, goles_visitante")
+      .eq("estado_partido", "finalizado");
+
+    const finishedMap = new Map<string, { local: number; visitante: number }>();
+    (finishedMatches || []).forEach((m) => {
+      if (m.goles_local !== null && m.goles_visitante !== null) {
+        finishedMap.set(m.id, { local: Number(m.goles_local), visitante: Number(m.goles_visitante) });
+      }
+    });
+
+    const finishedMatchIds = Array.from(finishedMap.keys());
+    const userPointsMap = new Map<string, number>();
+
+    if (finishedMatchIds.length > 0) {
+      const { data: allPredictions } = await supabase
+        .from("prode_pronosticos")
+        .select("participante_id, partido_id, goles_local_pred, goles_visitante_pred")
+        .in("partido_id", finishedMatchIds);
+
+      (allPredictions || []).forEach((p) => {
+        const real = finishedMap.get(p.partido_id);
+        if (!real) return;
+
+        const pL = Number(p.goles_local_pred ?? 0);
+        const pV = Number(p.goles_visitante_pred ?? 0);
+        const rL = real.local;
+        const rV = real.visitante;
+
+        let pts = 0;
+        if (pL === rL && pV === rV) {
+          pts = 3;
+        } else {
+          const pDiff = pL - pV;
+          const rDiff = rL - rV;
+          if ((pDiff > 0 && rDiff > 0) || (pDiff < 0 && rDiff < 0) || (pDiff === 0 && rDiff === 0)) {
+            pts = 1;
+          }
+        }
+
+        const currentPts = userPointsMap.get(p.participante_id) || 0;
+        userPointsMap.set(p.participante_id, currentPts + pts);
+      });
+    }
+
     let ranking: any[] = [];
 
     // 1. Ranking de Liga Privada de Amigos
     if (ligaPrivadaId) {
       const { data: miembros, error: errMiembros } = await supabase
         .from("prode_miembros_liga")
-        .select("participante_id, prode_participantes!inner(id, nombre, puntos_totales, racha_actual)")
+        .select("participante_id, prode_participantes!inner(id, nombre, racha_actual)")
         .eq("liga_privada_id", ligaPrivadaId);
 
       if (errMiembros) {
@@ -43,20 +90,18 @@ export async function GET(request: NextRequest) {
       ranking = (miembros || []).map((m: any) => ({
         id: m.prode_participantes.id,
         nombre: m.prode_participantes.nombre,
-        puntos_totales: m.prode_participantes.puntos_totales,
-        racha_actual: m.prode_participantes.racha_actual,
+        puntos_totales: userPointsMap.get(m.prode_participantes.id) || 0,
+        racha_actual: m.prode_participantes.racha_actual || 0,
       }));
 
       // Ordenar por puntos_totales descendente
       ranking.sort((a, b) => b.puntos_totales - a.puntos_totales);
     } else {
-      // 2. Ranking General del Diario (Top 100)
+      // 2. Ranking General del Diario
       const { data: general, error: errGeneral } = await supabase
         .from("prode_participantes")
-        .select("id, nombre, puntos_totales, racha_actual")
-        .eq("cliente_id", clientId)
-        .order("puntos_totales", { ascending: false })
-        .limit(100);
+        .select("id, nombre, racha_actual")
+        .eq("cliente_id", clientId);
 
       if (errGeneral) {
         console.error("Error al consultar ranking general:", errGeneral);
@@ -66,7 +111,15 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      ranking = general || [];
+      ranking = (general || []).map((g: any) => ({
+        id: g.id,
+        nombre: g.nombre,
+        puntos_totales: userPointsMap.get(g.id) || 0,
+        racha_actual: g.racha_actual || 0,
+      }));
+
+      ranking.sort((a, b) => b.puntos_totales - a.puntos_totales);
+      ranking = ranking.slice(0, 100);
     }
 
     // Mapear posiciones (Rank #1, #2, #3...)
