@@ -255,63 +255,8 @@ export async function GET(request: NextRequest) {
     let partidosResultado = partidosOrdenados;
 
 
-    if (partidosResultado.length === 0) {
-      partidosResultado = [
-        {
-          id: "demo-partido-1",
-          goles_local: 2,
-          goles_visitante: 1,
-          estado_partido: "en_vivo",
-          fecha_hora: null,
-          minuto_actual: 34,
-          liga_nombre: "Liga Necochea",
-          jornada: "Fecha 1",
-          equipo_local: {
-            nombre: "Del Valle",
-            logo: "/escudos_necochea/del_valle.png"
-          },
-          equipo_visitante: {
-            nombre: "Ministerio",
-            logo: "/escudos_necochea/ministerio.png"
-          }
-        },
-        {
-          id: "demo-partido-2",
-          goles_local: 0,
-          goles_visitante: 0,
-          estado_partido: "programado",
-          fecha_hora: null,
-          minuto_actual: null,
-          liga_nombre: "Liga Necochea",
-          jornada: "Fecha 1",
-          equipo_local: {
-            nombre: "Rivadavia",
-            logo: "/escudos_necochea/rivadavia.png"
-          },
-          equipo_visitante: {
-            nombre: "Mataderos",
-            logo: "/escudos_necochea/mataderos.png"
-          }
-        },
-        {
-          id: "demo-partido-3",
-          goles_local: 3,
-          goles_visitante: 2,
-          estado_partido: "finalizado",
-          fecha_hora: null,
-          minuto_actual: null,
-          liga_nombre: "Liga Necochea",
-          jornada: "Fecha 1",
-          equipo_local: {
-            nombre: "Villa Díaz Vélez",
-            logo: "/escudos_necochea/villa_diaz_velez.png"
-          },
-          equipo_visitante: {
-            nombre: "Huracán de Necochea",
-            logo: "/escudos_necochea/huracan_de_necochea.png"
-          }
-        }
-      ];
+    if (partidosResultado.length === 0 && partidosMapeados.length > 0) {
+      partidosResultado = partidosMapeados;
     }
 
 
