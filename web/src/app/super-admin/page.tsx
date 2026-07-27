@@ -4,6 +4,19 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      "futbol-widget": any;
+    }
+  }
+  namespace React.JSX {
+    interface IntrinsicElements {
+      "futbol-widget": any;
+    }
+  }
+}
+
 type Cliente = {
   id: string;
   nombre_medio: string;
@@ -99,6 +112,14 @@ export default function SuperAdmin() {
   const [updatingEquipoLogo, setUpdatingEquipoLogo] = useState(false);
 
   useEffect(() => {
+    let script = document.getElementById("muove-widget-script") as HTMLScriptElement;
+    if (!script) {
+      script = document.createElement("script");
+      script.id = "muove-widget-script";
+      script.src = "/widget.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
     fetchData();
   }, []);
 
@@ -929,6 +950,25 @@ export default function SuperAdmin() {
                                     <img src={configLogoUrl} alt="" className="h-10 object-contain bg-[#121214] p-1 border border-zinc-800 rounded" />
                                   </div>
                                 )}
+                              </div>
+                            </div>
+
+                            {/* Previsualización en Tiempo Real del Widget */}
+                            <div className="border-t border-[#27272a] pt-4 mt-2 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs font-bold text-[#ff7900]">👁️ Previsualización en Tiempo Real del Widget ({cliente.nombre_medio})</span>
+                                <span className="text-[10px] text-zinc-500 font-mono">ID: {cliente.id}</span>
+                              </div>
+                              <p className="text-[11px] text-zinc-400">
+                                Marcadores reales en vivo y prueba estética del widget para vendérselo o mostrárselo al diario:
+                              </p>
+                              <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 shadow-inner">
+                                <futbol-widget
+                                  client-id={cliente.id}
+                                  client-name={cliente.nombre_medio}
+                                  primary-color={configColorPrimario}
+                                  secondary-color={configColorSecundario}
+                                />
                               </div>
                             </div>
 
