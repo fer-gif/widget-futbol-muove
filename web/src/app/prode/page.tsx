@@ -233,8 +233,8 @@ export default function ProdeDataeNePage() {
         data.pronosticos.forEach((item: any) => {
           if (item.partido_id) {
             savedMap[item.partido_id] = {
-              local: Number(item.goles_local_pronostico || 0),
-              visitante: Number(item.goles_visitante_pronostico || 0),
+              local: Number(item.goles_local_pred ?? item.goles_local_pronostico ?? 0),
+              visitante: Number(item.goles_visitante_pred ?? item.goles_visitante_pronostico ?? 0),
             };
           }
         });
@@ -626,21 +626,47 @@ export default function ProdeDataeNePage() {
                 <div className="flex gap-2 overflow-x-auto pt-1 no-scrollbar">
                   {filteredPartidos.map((p) => {
                     const saved = savedPredictions[p.id];
+                    const isFin = p.estado_partido === "finalizado";
+                    let ptsBadge = "";
+                    let dotColor = saved ? "bg-emerald-500" : "bg-slate-300";
+
+                    if (isFin && saved) {
+                      const rL = Number(p.goles_local || 0);
+                      const rV = Number(p.goles_visitante || 0);
+                      if (saved.local === rL && saved.visitante === rV) {
+                        ptsBadge = "🎯 +3 Pts";
+                        dotColor = "bg-emerald-500 font-bold";
+                      } else {
+                        const pDiff = saved.local - saved.visitante;
+                        const rDiff = rL - rV;
+                        if ((pDiff > 0 && rDiff > 0) || (pDiff < 0 && rDiff < 0) || (pDiff === 0 && rDiff === 0)) {
+                          ptsBadge = "✅ +1 Pt";
+                          dotColor = "bg-green-500";
+                        } else {
+                          ptsBadge = "❌ 0 Pts";
+                          dotColor = "bg-rose-400";
+                        }
+                      }
+                    }
+
                     return (
                       <div
                         key={p.id}
                         className={`shrink-0 text-[11px] px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 border transition-all ${
                           saved
-                            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                            ? isFin
+                              ? "bg-slate-100 border-slate-300 text-slate-800"
+                              : "bg-emerald-50 border-emerald-200 text-emerald-800"
                             : "bg-white border-slate-200 text-slate-400"
                         }`}
                       >
-                        <span className={`w-2 h-2 rounded-full ${saved ? "bg-emerald-500" : "bg-slate-300"}`}></span>
+                        <span className={`w-2 h-2 rounded-full ${dotColor}`}></span>
                         <span className="font-extrabold">{p.equipo_local.nombre.split(" ")[0]}</span>
                         <span className="font-black text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-xs">
                           {saved ? `${saved.local} - ${saved.visitante}` : "VS"}
                         </span>
                         <span className="font-extrabold">{p.equipo_visitante.nombre.split(" ")[0]}</span>
+                        {ptsBadge && <span className="text-[10px] font-black ml-1 text-[#EF426F]">{ptsBadge}</span>}
                       </div>
                     );
                   })}
@@ -652,11 +678,57 @@ export default function ProdeDataeNePage() {
               {filteredPartidos.map((p) => {
                 const pred = predictions[p.id] || { local: 0, visitante: 0 };
                 const saved = savedPredictions[p.id];
+
+                const isFin = p.estado_partido === "finalizado";
+                const isEnVivo = p.estado_partido === "en_vivo";
+                const matchTime = p.fecha_hora ? new Date(p.fecha_hora) : null;
+                const isHoraPasada = matchTime && !isNaN(matchTime.getTime()) && new Date() >= matchTime;
+                const isBloqueado = Boolean(isFin || isEnVivo || isHoraPasada);
+
                 const isSaved = saved && saved.local === pred.local && saved.visitante === pred.visitante;
                 const isModified = saved && (saved.local !== pred.local || saved.visitante !== pred.visitante);
 
+                // Cálculo de Puntos si el partido está finalizado
+                let evalResult: { pts: number; label: string; style: string } | null = null;
+                if (isFin && saved) {
+                  const rL = Number(p.goles_local || 0);
+                  const rV = Number(p.goles_visitante || 0);
+                  if (saved.local === rL && saved.visitante === rV) {
+                    evalResult = {
+                      pts: 3,
+                      label: "🎯 ¡ACERTASTE RESULTADO EXACTO! (+3 Pts)",
+                      style: "bg-emerald-500/10 border-emerald-500 text-emerald-800 font-black",
+                    };
+                  } else {
+                    const pDiff = saved.local - saved.visitante;
+                    const rDiff = rL - rV;
+                    if ((pDiff > 0 && rDiff > 0) || (pDiff < 0 && rDiff < 0) || (pDiff === 0 && rDiff === 0)) {
+                      evalResult = {
+                        pts: 1,
+                        label: "✅ ACERTASTE GANADOR / EMPATE (+1 Pt)",
+                        style: "bg-green-500/10 border-green-500 text-green-800 font-extrabold",
+                      };
+                    } else {
+                      evalResult = {
+                        pts: 0,
+                        label: "❌ NO ACERTASTE EL RESULTADO (0 Pts)",
+                        style: "bg-rose-50 border-rose-200 text-rose-700 font-bold",
+                      };
+                    }
+                  }
+                }
+
                 return (
-                  <div key={p.id} className={`bg-white border rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between gap-3 shadow-sm ${isSaved ? "border-emerald-200 hover:border-emerald-400" : "border-slate-200 hover:border-[#EF426F]"}`}>
+                  <div
+                    key={p.id}
+                    className={`bg-white border rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between gap-3 shadow-sm ${
+                      isFin
+                        ? "border-slate-300 bg-slate-50/50"
+                        : isSaved
+                        ? "border-emerald-200 hover:border-emerald-400"
+                        : "border-slate-200 hover:border-[#EF426F]"
+                    }`}
+                  >
                     {/* Header con Liga, Día/Hora y Jornada */}
                     <div className="flex justify-between items-center text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2.5 gap-2 flex-wrap">
                       <span className="truncate max-w-[140px] sm:max-w-none">{p.liga_nombre}</span>
@@ -680,17 +752,49 @@ export default function ProdeDataeNePage() {
                         </span>
                         
                         <div className="flex items-center gap-1 sm:gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl">
-                          <button onClick={() => handleScoreChange(p.id, "local", -1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">-</button>
-                          <span className="w-5 sm:w-6 text-center font-black text-sm sm:text-base text-[#EF426F]">{pred.local}</span>
-                          <button onClick={() => handleScoreChange(p.id, "local", 1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">+</button>
+                          <button
+                            disabled={isBloqueado}
+                            onClick={() => handleScoreChange(p.id, "local", -1)}
+                            className={`w-7 h-7 sm:w-8 sm:h-8 bg-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs ${
+                              isBloqueado ? "opacity-40 cursor-not-allowed" : "hover:bg-[#EF426F] hover:text-white"
+                            }`}
+                          >
+                            -
+                          </button>
+                          <span className="w-5 sm:w-6 text-center font-black text-sm sm:text-base text-[#EF426F]">
+                            {isFin ? (saved ? saved.local : pred.local) : pred.local}
+                          </span>
+                          <button
+                            disabled={isBloqueado}
+                            onClick={() => handleScoreChange(p.id, "local", 1)}
+                            className={`w-7 h-7 sm:w-8 sm:h-8 bg-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs ${
+                              isBloqueado ? "opacity-40 cursor-not-allowed" : "hover:bg-[#EF426F] hover:text-white"
+                            }`}
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
 
-                      {/* VS Divider */}
+                      {/* VS Divider / Resultado Real */}
                       <div className="col-span-1 flex flex-col items-center justify-center text-center">
-                        <span className="font-black text-slate-400 text-xs sm:text-sm bg-slate-100 px-2 py-1 rounded-full border border-slate-200 shadow-xs">
-                          VS
-                        </span>
+                        {isFin ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase">FINAL</span>
+                            <span className="font-black text-sm sm:text-base bg-[#7F35B2] text-white px-2 py-1 rounded-lg shadow-xs">
+                              {p.goles_local} - {p.goles_visitante}
+                            </span>
+                          </div>
+                        ) : isEnVivo ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[9px] font-black text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded animate-pulse">EN VIVO</span>
+                            <span className="font-black text-slate-400 text-xs sm:text-sm">VS</span>
+                          </div>
+                        ) : (
+                          <span className="font-black text-slate-400 text-xs sm:text-sm bg-slate-100 px-2 py-1 rounded-full border border-slate-200 shadow-xs">
+                            VS
+                          </span>
+                        )}
                       </div>
 
                       {/* Visitante Team */}
@@ -701,16 +805,51 @@ export default function ProdeDataeNePage() {
                         </span>
                         
                         <div className="flex items-center gap-1 sm:gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl">
-                          <button onClick={() => handleScoreChange(p.id, "visitante", -1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">-</button>
-                          <span className="w-5 sm:w-6 text-center font-black text-sm sm:text-base text-[#EF426F]">{pred.visitante}</span>
-                          <button onClick={() => handleScoreChange(p.id, "visitante", 1)} className="w-7 h-7 sm:w-8 sm:h-8 bg-white hover:bg-[#EF426F] hover:text-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs">+</button>
+                          <button
+                            disabled={isBloqueado}
+                            onClick={() => handleScoreChange(p.id, "visitante", -1)}
+                            className={`w-7 h-7 sm:w-8 sm:h-8 bg-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs ${
+                              isBloqueado ? "opacity-40 cursor-not-allowed" : "hover:bg-[#EF426F] hover:text-white"
+                            }`}
+                          >
+                            -
+                          </button>
+                          <span className="w-5 sm:w-6 text-center font-black text-sm sm:text-base text-[#EF426F]">
+                            {isFin ? (saved ? saved.visitante : pred.visitante) : pred.visitante}
+                          </span>
+                          <button
+                            disabled={isBloqueado}
+                            onClick={() => handleScoreChange(p.id, "visitante", 1)}
+                            className={`w-7 h-7 sm:w-8 sm:h-8 bg-white border border-slate-200 text-slate-800 font-extrabold rounded text-sm flex items-center justify-center transition-colors shadow-xs ${
+                              isBloqueado ? "opacity-40 cursor-not-allowed" : "hover:bg-[#EF426F] hover:text-white"
+                            }`}
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Estado del Pronóstico del Usuario */}
+                    {/* Estado del Pronóstico y Evaluación de Puntos */}
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-extrabold">
-                      {isSaved ? (
+                      {isFin ? (
+                        evalResult ? (
+                          <div className={`w-full p-2 rounded-xl text-center flex flex-col gap-0.5 border ${evalResult.style}`}>
+                            <span className="text-[11px]">{evalResult.label}</span>
+                            <span className="text-[10px] font-medium text-slate-600">
+                              Tu pronóstico: <strong>{saved.local} - {saved.visitante}</strong> | Resultado real: <strong>{p.goles_local} - {p.goles_visitante}</strong>
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="w-full p-2 rounded-xl text-center bg-slate-100 text-slate-500 font-semibold border border-slate-200">
+                            🏁 Partido Finalizado ({p.goles_local} - {p.goles_visitante}) — No habías cargado pronóstico
+                          </div>
+                        )
+                      ) : isBloqueado ? (
+                        <div className="w-full p-2 rounded-xl text-center bg-amber-50 text-amber-800 border border-amber-200 font-bold">
+                          🔒 Partido Cerrado {saved ? `(Tu pronóstico: ${saved.local} - ${saved.visitante})` : "(Sin pronóstico cargado)"}
+                        </div>
+                      ) : isSaved ? (
                         <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1 w-full justify-center">
                           ✅ Pronóstico Guardado: {saved.local} - {saved.visitante}
                         </span>
