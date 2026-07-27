@@ -418,6 +418,14 @@
         return;
       }
 
+      const resolveLogoUrl = (logoUrl) => {
+        if (!logoUrl) return "https://placehold.co/40/121214/fff?text=EQ";
+        if (logoUrl.startsWith("http://") || logoUrl.startsWith("https://")) {
+          return logoUrl;
+        }
+        return `${baseUrl}${logoUrl.startsWith("/") ? "" : "/"}${logoUrl}`;
+      };
+
       const cardsHtml = this.partidos.map(p => {
         const esLive = p.estado_partido === "en_vivo";
         const esFinalizado = p.estado_partido === "finalizado";
@@ -433,14 +441,14 @@
             </div>
             <div class="card-body">
               <div class="team-block">
-                <img src="${p.equipo_local.logo || "https://placehold.co/40/121214/fff?text=L"}" alt="" />
+                <img src="${resolveLogoUrl(p.equipo_local.logo)}" alt="" />
                 <span class="team-name">${p.equipo_local.nombre}</span>
               </div>
               <div style="color:#fff; font-size:16px; font-weight:900;">
                 ${showGoals ? `${p.goles_local} - ${p.goles_visitante}` : "VS"}
               </div>
               <div class="team-block">
-                <img src="${p.equipo_visitante.logo || "https://placehold.co/40/121214/fff?text=V"}" alt="" />
+                <img src="${resolveLogoUrl(p.equipo_visitante.logo)}" alt="" />
                 <span class="team-name">${p.equipo_visitante.nombre}</span>
               </div>
             </div>

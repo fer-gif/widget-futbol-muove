@@ -138,6 +138,16 @@ export async function GET(request: NextRequest) {
     const { data: dataEquipos } = await supabase.from("equipos").select("*");
     const { data: dataLigas } = await supabase.from("ligas").select("*");
 
+    const appOrigin = process.env.NEXT_PUBLIC_APP_URL || "https://widget-futbol-muove.vercel.app";
+    const formatLogoUrl = (logoUrl?: string | null): string => {
+      if (!logoUrl) return "";
+      if (logoUrl.startsWith("http://") || logoUrl.startsWith("https://")) {
+        return logoUrl;
+      }
+      const cleanPath = logoUrl.startsWith("/") ? logoUrl : `/${logoUrl}`;
+      return `${appOrigin}${cleanPath}`;
+    };
+
     const now = new Date();
 
     const partidosMapeados = (dataPartidos || []).map((p: any) => {
@@ -177,11 +187,11 @@ export async function GET(request: NextRequest) {
         jornada: p.jornada || null,
         equipo_local: {
           nombre: local?.nombre_equipo || "Local",
-          logo: local?.logo_url || ""
+          logo: formatLogoUrl(local?.logo_url)
         },
         equipo_visitante: {
           nombre: visitante?.nombre_equipo || "Visitante",
-          logo: visitante?.logo_url || ""
+          logo: formatLogoUrl(visitante?.logo_url)
         }
       };
     });
