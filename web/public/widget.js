@@ -15,11 +15,11 @@
     }
 
     static get observedAttributes() {
-      return ["client-id", "leagues"];
+      return ["client-id", "leagues", "primary-color", "secondary-color", "card-bg-color", "main-text-color", "sub-text-color", "font-family"];
     }
 
     attributeChangedCallback() {
-      this.loadData();
+      this.render();
     }
 
     connectedCallback() {
@@ -228,7 +228,7 @@
           }
 
 
-          /* Haz de luz de contorno en movimiento saturado con los colores de DataNE (#7F35B2 y #EF426F) */
+          /* Haz de luz de contorno en movimiento dinámico basado en los colores del cliente */
           :host::before {
             content: '';
             position: absolute;
@@ -240,18 +240,18 @@
               from 0deg,
               transparent 0deg,
               transparent 120deg,
-              rgba(127, 53, 178, 0.5) 170deg,
-              #7F35B2 230deg,
-              #EF426F 300deg,
-              #ff80bf 345deg,
-              #7F35B2 360deg
+              ${secondaryColor}40 170deg,
+              ${secondaryColor} 230deg,
+              ${primaryColor} 300deg,
+              ${secondaryColor} 345deg,
+              ${secondaryColor} 360deg
             );
             animation: muove-glow-rotate 3.2s linear infinite;
             z-index: 0;
             pointer-events: none;
           }
 
-          /* Resplandor ambiental exterior en violeta y rosa frambuesa (#EF426F) */
+          /* Resplandor ambiental exterior dinámico */
           :host::after {
             content: '';
             position: absolute;
@@ -263,10 +263,10 @@
               from 0deg,
               transparent 0deg,
               transparent 140deg,
-              rgba(127, 53, 178, 0.7) 190deg,
-              #7F35B2 250deg,
-              #EF426F 315deg,
-              #7F35B2 360deg
+              ${secondaryColor}60 190deg,
+              ${secondaryColor} 250deg,
+              ${primaryColor} 315deg,
+              ${secondaryColor} 360deg
             );
             animation: muove-glow-rotate 3.2s linear infinite;
             filter: blur(12px);

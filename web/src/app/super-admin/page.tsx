@@ -942,7 +942,7 @@ export default function SuperAdmin() {
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Acento (Bordes & Detalle)</label>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Acento (Borde Animado & Detalles)</label>
                                 <div className="flex gap-2">
                                   <input
                                     type="color"
