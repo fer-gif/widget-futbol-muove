@@ -651,7 +651,7 @@ export default function ProdeDataeNePage() {
 
             {prodeMsg && (
               <div
-                className={`p-4 rounded text-xs font-bold text-center border ${
+                className={`p-4 rounded-xl text-xs font-bold text-center border shadow-xs ${
                   prodeMsg.type === "success"
                     ? "bg-[#7F35B2]/10 border-[#7F35B2] text-[#7F35B2]"
                     : "bg-red-500/10 border-red-500/30 text-red-600"
@@ -660,6 +660,30 @@ export default function ProdeDataeNePage() {
                 {prodeMsg.text}
               </div>
             )}
+
+            {/* Banner Informativo de Cierre de Partidos Individuales */}
+            {(() => {
+              const totalP = filteredPartidos.length;
+              const cerradosP = filteredPartidos.filter(p => {
+                const matchTime = p.fecha_hora ? new Date(p.fecha_hora) : null;
+                return p.estado_partido !== "programado" || (matchTime && !isNaN(matchTime.getTime()) && new Date() >= matchTime);
+              }).length;
+
+              if (totalP > 0 && cerradosP === totalP) {
+                return (
+                  <div className="bg-amber-500/10 border border-amber-500/30 text-amber-800 p-4 rounded-xl text-xs font-bold text-center">
+                    🔒 La {selectedJornada || "fecha"} se encuentra cerrada. Todos los partidos han comenzado o finalizado.
+                  </div>
+                );
+              } else if (cerradosP > 0) {
+                return (
+                  <div className="bg-sky-500/10 border border-sky-500/30 text-sky-800 p-4 rounded-xl text-xs font-bold text-center">
+                    💡 Los partidos se cierran individualmente al comenzar. Hay {cerradosP} partido(s) cerrado(s) y {totalP - cerradosP} partido(s) disponible(s) para pronosticar.
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {/* Panel Resumen de Pronósticos Guardados para el usuario */}
             {user && (

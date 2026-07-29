@@ -120,38 +120,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obtener todas las jornadas a las que corresponden estos partidos
-    const jornadas = Array.from(new Set(partidosInfo.map(p => p.jornada).filter(Boolean)));
-    const ligaId = partidosInfo[0].liga_id;
-
-    // Consultar todos los partidos de esa(s) jornada(s) para verificar si arrancó el primer partido de la fecha
-    const { data: partidosJornada } = await supabase
-      .from("partidos")
-      .select("id, estado_partido, fecha_hora")
-      .eq("liga_id", ligaId)
-      .in("jornada", jornadas);
-
     const now = new Date();
 
-    // Regla: Si el primer partido de la fecha ya comenzó o cambió de estado 'programado', la fecha está CERRADA.
-    for (const p of partidosJornada || []) {
+    // 2. Filtrar únicamente los partidos que estén ABIERTOS para pronosticar (programados y en horario futuro)
+    const openMatchMap = new Map<string, boolean>();
+    partidosInfo.forEach(p => {
       const matchDate = p.fecha_hora ? new Date(p.fecha_hora) : null;
-      const yaComenzo = p.estado_partido !== "programado" || (matchDate && !isNaN(matchDate.getTime()) && now >= matchDate);
-      
-      if (yaComenzo) {
-        return NextResponse.json(
-          { 
-            success: false, 
-            closed: true,
-            error: "La fecha se encuentra cerrada. Los pronósticos se bloquean en cuanto comienza el primer partido de la fecha." 
-          },
-          { status: 403, headers }
-        );
-      }
+      const estaCerrado = p.estado_partido !== "programado" || (matchDate && !isNaN(matchDate.getTime()) && now >= matchDate);
+      openMatchMap.set(p.id, !estaCerrado);
+    });
+
+    const validPredictions = predictions.filter(p => openMatchMap.get(p.partidoId) === true);
+
+    if (validPredictions.length === 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          closed: true,
+          error: "Los partidos seleccionados ya han comenzado y sus pronósticos están cerrados." 
+        },
+        { status: 403, headers }
+      );
     }
 
-    // 3. Upsert de los pronósticos enviados
-    const rowsToUpsert = predictions.map(p => ({
+    // 3. Upsert de los pronósticos de los partidos abiertos
+    const rowsToUpsert = validPredictions.map(p => ({
       participante_id: participanteId,
       partido_id: p.partidoId,
       goles_local_pred: Math.max(0, parseInt(p.golesLocal) || 0),
