@@ -241,6 +241,8 @@ export async function GET(request: NextRequest) {
     let colorTextoPrincipal = "#f4f4f5";
     let colorTextoSecundario = "#a1a1aa";
     let fuenteFamilia = "sans-serif";
+    let colorBorde1 = "#7F35B2";
+    let colorBorde2 = "#EF426F";
     const rawLogoVal: string | null = (configGlobal as any)?.logo_medio_url || null;
     let logoClean: string | null = rawLogoVal;
 
@@ -253,6 +255,8 @@ export async function GET(request: NextRequest) {
         colorTextoPrincipal = cfg[1] || "#f4f4f5";
         colorTextoSecundario = cfg[2] || "#a1a1aa";
         fuenteFamilia = cfg[3] || "sans-serif";
+        colorBorde1 = cfg[4] || "#7F35B2";
+        colorBorde2 = cfg[5] || "#EF426F";
       }
     }
 
@@ -270,6 +274,8 @@ export async function GET(request: NextRequest) {
           color_fondo_tarjeta: colorFondoTarjeta,
           color_texto_principal: colorTextoPrincipal,
           color_texto_secundario: colorTextoSecundario,
+          color_borde_1: colorBorde1,
+          color_borde_2: colorBorde2,
           fuente_familia: fuenteFamilia,
           logo_medio_url: logoClean,
           mostrar_escudos: configGlobal.mostrar_escudos,

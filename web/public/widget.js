@@ -15,7 +15,7 @@
     }
 
     static get observedAttributes() {
-      return ["client-id", "leagues", "primary-color", "secondary-color", "card-bg-color", "main-text-color", "sub-text-color", "font-family"];
+      return ["client-id", "leagues", "primary-color", "secondary-color", "card-bg-color", "main-text-color", "sub-text-color", "font-family", "border-color-1", "border-color-2"];
     }
 
     attributeChangedCallback() {
@@ -169,6 +169,8 @@
       let mainTextColor = this.estilo.color_texto_principal || this.getAttribute("main-text-color") || "#f4f4f5";
       let subTextColor = this.estilo.color_texto_secundario || this.getAttribute("sub-text-color") || "#a1a1aa";
       let fuenteFamilia = this.estilo.fuente_familia || this.getAttribute("font-family") || "sans-serif";
+      let borderColor1 = this.getAttribute("border-color-1") || this.estilo.color_borde_1 || "#7F35B2";
+      let borderColor2 = this.getAttribute("border-color-2") || this.estilo.color_borde_2 || "#EF426F";
 
       if (rawSecondary.includes("|")) {
         const parts = rawSecondary.split("|");
@@ -200,6 +202,8 @@
           mainTextColor = cfg[1] || mainTextColor;
           subTextColor = cfg[2] || subTextColor;
           fuenteFamilia = cfg[3] || fuenteFamilia;
+          borderColor1 = cfg[4] || borderColor1;
+          borderColor2 = cfg[5] || borderColor2;
         }
       }
       const nombreMedio = this.getAttribute("client-name") || "Diario DataNE";
@@ -228,7 +232,7 @@
           }
 
 
-          /* Haz de luz de contorno en movimiento dinámico basado en los colores del cliente */
+          /* Haz de luz de contorno en movimiento independiente personalizado */
           :host::before {
             content: '';
             position: absolute;
@@ -240,18 +244,18 @@
               from 0deg,
               transparent 0deg,
               transparent 120deg,
-              ${secondaryColor}40 170deg,
-              ${secondaryColor} 230deg,
-              ${primaryColor} 300deg,
-              ${secondaryColor} 345deg,
-              ${secondaryColor} 360deg
+              ${borderColor1}40 170deg,
+              ${borderColor1} 230deg,
+              ${borderColor2} 300deg,
+              ${borderColor2} 345deg,
+              ${borderColor1} 360deg
             );
             animation: muove-glow-rotate 3.2s linear infinite;
             z-index: 0;
             pointer-events: none;
           }
 
-          /* Resplandor ambiental exterior dinámico */
+          /* Resplandor ambiental exterior independiente personalizado */
           :host::after {
             content: '';
             position: absolute;
@@ -263,10 +267,10 @@
               from 0deg,
               transparent 0deg,
               transparent 140deg,
-              ${secondaryColor}60 190deg,
-              ${secondaryColor} 250deg,
-              ${primaryColor} 315deg,
-              ${secondaryColor} 360deg
+              ${borderColor1}60 190deg,
+              ${borderColor1} 250deg,
+              ${borderColor2} 315deg,
+              ${borderColor1} 360deg
             );
             animation: muove-glow-rotate 3.2s linear infinite;
             filter: blur(12px);

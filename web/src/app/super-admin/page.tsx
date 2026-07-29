@@ -103,6 +103,8 @@ export default function SuperAdmin() {
   const [configColorFondoTarjeta, setConfigColorFondoTarjeta] = useState("#121214");
   const [configColorTextoPrincipal, setConfigColorTextoPrincipal] = useState("#f4f4f5");
   const [configColorTextoSecundario, setConfigColorTextoSecundario] = useState("#a1a1aa");
+  const [configColorBorde1, setConfigColorBorde1] = useState("#7F35B2");
+  const [configColorBorde2, setConfigColorBorde2] = useState("#EF426F");
   const [configFuenteFamilia, setConfigFuenteFamilia] = useState("sans-serif");
   const [configLogoUrl, setConfigLogoUrl] = useState("");
   const [configLogoFile, setConfigLogoFile] = useState<File | null>(null);
@@ -274,6 +276,8 @@ export default function SuperAdmin() {
     setConfigColorFondoTarjeta("#121214");
     setConfigColorTextoPrincipal("#f4f4f5");
     setConfigColorTextoSecundario("#a1a1aa");
+    setConfigColorBorde1("#7F35B2");
+    setConfigColorBorde2("#EF426F");
     setConfigFuenteFamilia("sans-serif");
     setConfigLogoUrl("");
     setConfigLogoFile(null);
@@ -302,6 +306,8 @@ export default function SuperAdmin() {
         setConfigColorTextoPrincipal(cfg[1] || "#f4f4f5");
         setConfigColorTextoSecundario(cfg[2] || "#a1a1aa");
         setConfigFuenteFamilia(cfg[3] || "sans-serif");
+        setConfigColorBorde1(cfg[4] || "#7F35B2");
+        setConfigColorBorde2(cfg[5] || "#EF426F");
       }
       setConfigLogoUrl(rawLogo);
     }
@@ -342,7 +348,7 @@ export default function SuperAdmin() {
         .maybeSingle();
 
       const baseLogo = logoUrl ? logoUrl.split("___CFG___")[0] : "";
-      const extraConfig = `___CFG___${configColorFondoTarjeta}|${configColorTextoPrincipal}|${configColorTextoSecundario}|${configFuenteFamilia}`;
+      const extraConfig = `___CFG___${configColorFondoTarjeta}|${configColorTextoPrincipal}|${configColorTextoSecundario}|${configFuenteFamilia}|${configColorBorde1}|${configColorBorde2}`;
       const finalLogoPayload = baseLogo ? `${baseLogo}${extraConfig}` : extraConfig;
 
       const payload = {
@@ -1014,6 +1020,42 @@ export default function SuperAdmin() {
                               </div>
 
                               <div>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Borde Animado Principal (Glow 1)</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="color"
+                                    value={configColorBorde1}
+                                    onChange={e => setConfigColorBorde1(e.target.value)}
+                                    className="w-10 h-10 border-0 bg-transparent cursor-pointer rounded"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={configColorBorde1}
+                                    onChange={e => setConfigColorBorde1(e.target.value)}
+                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none font-mono"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Color Borde Animado Secundario (Glow 2)</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="color"
+                                    value={configColorBorde2}
+                                    onChange={e => setConfigColorBorde2(e.target.value)}
+                                    className="w-10 h-10 border-0 bg-transparent cursor-pointer rounded"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={configColorBorde2}
+                                    onChange={e => setConfigColorBorde2(e.target.value)}
+                                    className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none font-mono"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
                                 <label className="block text-xs font-semibold text-zinc-400 mb-2">Tipografía / Tipo de Letra</label>
                                 <select
                                   value={configFuenteFamilia}
@@ -1066,6 +1108,8 @@ export default function SuperAdmin() {
                                   card-bg-color={configColorFondoTarjeta}
                                   main-text-color={configColorTextoPrincipal}
                                   sub-text-color={configColorTextoSecundario}
+                                  border-color-1={configColorBorde1}
+                                  border-color-2={configColorBorde2}
                                   font-family={configFuenteFamilia}
                                 />
                               </div>
