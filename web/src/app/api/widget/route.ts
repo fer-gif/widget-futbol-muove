@@ -37,22 +37,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
     // 1. Validar estado del cliente
     let cliente: any = null;
-    if (clientId) {
+    if (clientId && isUuid(clientId)) {
       const { data: cData } = await supabase
         .from("clientes")
-        .select("estado, nombre_medio")
+        .select("id, estado, nombre_medio")
         .eq("id", clientId)
         .single();
       cliente = cData;
+    } else if (clientId) {
+      const { data: cData } = await supabase
+        .from("clientes")
+        .select("id, estado, nombre_medio")
+        .ilike("nombre_medio", `%${clientId}%`)
+        .limit(1);
+      if (cData && cData.length > 0) cliente = cData[0];
     }
 
     if (!cliente) {
-      // Si aún no hay clientes en la DB, responder con datos demostrativos por defecto de DataNE
-      cliente = { estado: "activo", nombre_medio: "Diario DataNE" };
+      cliente = { id: null, estado: "activo", nombre_medio: "Diario DataNE" };
     }
-
 
     if (cliente.estado !== "activo") {
       return NextResponse.json(
@@ -65,7 +72,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const realClientId = cliente?.id || (clientId && isUuid(clientId) ? clientId : null);
 
     // 2. Obtener configuración de estilo
     let configGlobal = {
@@ -75,11 +82,11 @@ export async function GET(request: NextRequest) {
       mostrar_escudos: true
     };
 
-    if (clientId && isUuid(clientId)) {
+    if (realClientId) {
       const { data: configs } = await supabase
         .from("configuracion_widgets")
         .select("*")
-        .eq("cliente_id", clientId);
+        .eq("cliente_id", realClientId);
 
       if (configs && configs.length > 0) {
         const found = configs.find(c => c.liga_id === null) || configs[0];
@@ -90,11 +97,11 @@ export async function GET(request: NextRequest) {
     // 3. Obtener ligas autorizadas
     let ligasAutorizadas: string[] = [];
 
-    if (clientId && isUuid(clientId)) {
+    if (realClientId) {
       const { data: asignaciones } = await supabase
         .from("clientes_ligas")
         .select("liga_id")
-        .eq("cliente_id", clientId);
+        .eq("cliente_id", realClientId);
 
       if (asignaciones && asignaciones.length > 0) {
         ligasAutorizadas = asignaciones.map(a => a.liga_id);
@@ -124,8 +131,8 @@ export async function GET(request: NextRequest) {
         .in("liga_id", ligasAutorizadas);
 
       if (!partidosError && partidosFound) {
-        if (clientId && isUuid(clientId)) {
-          dataPartidos = partidosFound.filter(p => !p.cliente_id || p.cliente_id === "todos" || p.cliente_id === clientId);
+        if (realClientId) {
+          dataPartidos = partidosFound.filter(p => !p.cliente_id || p.cliente_id === "todos" || p.cliente_id === realClientId);
         } else {
           dataPartidos = partidosFound;
         }
@@ -134,14 +141,13 @@ export async function GET(request: NextRequest) {
       // Fallback: traer todos los partidos existentes
       const { data: todosPartidos } = await supabase.from("partidos").select("*");
       if (todosPartidos) {
-        if (clientId && isUuid(clientId)) {
-          dataPartidos = todosPartidos.filter(p => !p.cliente_id || p.cliente_id === "todos" || p.cliente_id === clientId);
+        if (realClientId) {
+          dataPartidos = todosPartidos.filter(p => !p.cliente_id || p.cliente_id === "todos" || p.cliente_id === realClientId);
         } else {
           dataPartidos = todosPartidos;
         }
       }
     }
-
 
     const { data: dataEquipos } = await supabase.from("equipos").select("*");
     const { data: dataLigas } = await supabase.from("ligas").select("*");
@@ -204,29 +210,8 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Filtrar para mostrar únicamente los últimos partidos dentro de una ventana de 7 días respecto a la fecha más reciente cargada
-    let partidosFiltrados7Dias = partidosMapeados;
-    if (partidosMapeados.length > 0) {
-      const fechasValidas = partidosMapeados
-        .map(p => p.fecha_hora ? new Date(p.fecha_hora).getTime() : null)
-        .filter((t): t is number => t !== null && !isNaN(t));
-
-      if (fechasValidas.length > 0) {
-        const maxFechaTime = Math.max(...fechasValidas);
-        const sieteDiasMs = 7 * 24 * 60 * 60 * 1000;
-        const minFechaTime = maxFechaTime - sieteDiasMs;
-
-        partidosFiltrados7Dias = partidosMapeados.filter(p => {
-          if (!p.fecha_hora) return true;
-          const pTime = new Date(p.fecha_hora).getTime();
-          if (isNaN(pTime)) return true;
-          return pTime >= minFechaTime && pTime <= (maxFechaTime + (2 * 24 * 60 * 60 * 1000));
-        });
-      }
-    }
-
     // Ordenar cronológicamente: en vivo primero, luego programados/demorados (el más cercano primero), y luego finalizados/suspendidos (el más reciente/nuevo primero)
-    const partidosOrdenados = partidosFiltrados7Dias.sort((a, b) => {
+    const partidosResultado = partidosMapeados.sort((a, b) => {
       const getGrupo = (est: string) => {
         if (est === "en_vivo") return 0;
         if (est === "programado" || est === "demorado") return 1;
@@ -244,20 +229,11 @@ export async function GET(request: NextRequest) {
       const timeB = b.fecha_hora && !isNaN(new Date(b.fecha_hora).getTime()) ? new Date(b.fecha_hora).getTime() : 9999999999999;
 
       if (grupoA === 1) {
-        // Programados/demorados: ordenar de forma ascendente por fecha (el más próximo primero)
         return timeA - timeB;
       } else {
-        // En vivo o finalizados/suspendidos: ordenar de forma descendente por fecha (el más reciente primero)
         return timeB - timeA;
       }
     });
-
-    let partidosResultado = partidosOrdenados;
-
-
-    if (partidosResultado.length === 0 && partidosMapeados.length > 0) {
-      partidosResultado = partidosMapeados;
-    }
 
 
     const colorSec = configGlobal.color_secundario || "#00E676";
