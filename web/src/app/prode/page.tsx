@@ -1588,11 +1588,11 @@ export default function ProdeDataeNePage() {
       <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-500 bg-slate-50 flex flex-col sm:flex-row items-center justify-center gap-2">
         <span>© {new Date().getFullYear()} Data eNe | Todos los derechos reservados. Prode Desarrollado por</span>
         <a
-          href="https://muove.com.ar"
+          href="https://agenciamuove.com/#servicios"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center hover:opacity-80 transition-opacity"
-          title="Muove Widgets"
+          title="Agencia Muove"
         >
           <img src="/logo_muove.svg" alt="Muove" className="h-4 w-auto object-contain" />
         </a>
