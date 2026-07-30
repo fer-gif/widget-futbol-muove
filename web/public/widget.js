@@ -397,7 +397,7 @@
           }
           .team-block img {
             width: 38px; height: 38px; object-fit: contain;
-            filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.8));
             transition: transform 0.2s ease;
           }
           .team-block:hover img { transform: scale(1.1); }
