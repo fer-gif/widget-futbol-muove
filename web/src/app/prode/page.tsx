@@ -123,7 +123,7 @@ export default function ProdeDataeNePage() {
 
   const [zonaA, setZonaA] = useState<EquipoTabla[]>([]);
   const [zonaB, setZonaB] = useState<EquipoTabla[]>([]);
-  const [selectedZona, setSelectedZona] = useState<"A" | "B">("A");
+  const [selectedZona, setSelectedZona] = useState<"A" | "B" | "GOLEADORES">("A");
 
   useEffect(() => {
     if (activeTab === "info") {
@@ -1168,20 +1168,24 @@ export default function ProdeDataeNePage() {
           </div>
         )}
 
-        {/* TAB 4: INFO DEL TORNEO (TABLAS DE POSICIONES ZONA A Y ZONA B + TABLA DE GOLEADORES) */}
+        {/* TAB 4: INFO DEL TORNEO (TABLAS OFICIALES DE POSICIONES Y GOLEADORES) */}
         {activeTab === "info" && (
-          <div className="space-y-8 max-w-4xl mx-auto">
-            {/* 1. Header & Zona Switcher */}
+          <div className="space-y-6 max-w-4xl mx-auto">
+            {/* Header & Selector de Tablas (Zona A, Zona B, Goleadores) */}
             <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 flex-wrap gap-4 shadow-sm">
               <div>
-                <h2 className="text-base font-black text-slate-900">Tablas Oficiales de Posiciones</h2>
-                <p className="text-xs text-slate-500">Liga Necochea de Fútbol - Torneo de Primera</p>
+                <h2 className="text-base font-black text-slate-900">
+                  {selectedZona === "GOLEADORES"
+                    ? "Tabla Oficial de Goleadores"
+                    : `Tablas Oficiales de Posiciones - Zona ${selectedZona}`}
+                </h2>
+                <p className="text-xs text-slate-500">Liga Necochea de Fútbol - Torneo Oficial de Primera</p>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setSelectedZona("A")}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
                     selectedZona === "A"
                       ? "bg-[#EF426F] text-white shadow-sm"
                       : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
@@ -1191,7 +1195,7 @@ export default function ProdeDataeNePage() {
                 </button>
                 <button
                   onClick={() => setSelectedZona("B")}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
                     selectedZona === "B"
                       ? "bg-[#EF426F] text-white shadow-sm"
                       : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
@@ -1199,211 +1203,208 @@ export default function ProdeDataeNePage() {
                 >
                   ZONA B
                 </button>
-              </div>
-            </div>
-
-            {/* Standings Table Card */}
-            <div className="space-y-2">
-              <div id="standings-table-card" className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm p-1">
-                {/* Header Banner con el Logo Oficial de DataeNe para la imagen descargada */}
-                <div className="bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png"
-                      alt="Data eNe"
-                      className="h-8 object-contain"
-                    />
-                    <div>
-                      <h3 className="font-black text-sm text-slate-900 uppercase">
-                        TABLA DE POSICIONES - {selectedZona === "A" ? "ZONA A" : "ZONA B"}
-                      </h3>
-                      <p className="text-[10px] text-slate-500 font-extrabold uppercase">
-                        Liga Necochea de Fútbol - Torneo Oficial de Primera
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4 text-center w-10">#</th>
-                        <th className="py-3 px-4">EQUIPO</th>
-                        <th className="py-3 px-2 text-center">J</th>
-                        <th className="py-3 px-2 text-center">G</th>
-                        <th className="py-3 px-2 text-center">E</th>
-                        <th className="py-3 px-2 text-center">P</th>
-                        <th className="py-3 px-2 text-center">GF</th>
-                        <th className="py-3 px-2 text-center">GC</th>
-                        <th className="py-3 px-2 text-center">DIF</th>
-                        <th className="py-3 px-4 text-center bg-[#EF426F]/10 text-[#EF426F]">PTS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-800">
-                      {(selectedZona === "A" ? zonaA : zonaB).map((item, idx) => (
-                        <tr
-                          key={item.equipo}
-                          className={`hover:bg-slate-50 transition-colors ${
-                            idx < 4 ? "bg-emerald-50/30" : ""
-                          }`}
-                        >
-                          <td className="py-3 px-4 text-center font-black text-slate-400">
-                            {item.posicion}
-                          </td>
-                          <td className="py-3 px-4 font-black text-slate-900 flex items-center gap-2">
-                            {item.logo && (
-                              <img src={item.logo} alt="" className="w-6 h-6 object-contain" />
-                            )}
-                            <span>{item.equipo}</span>
-                          </td>
-                          <td className="py-3 px-2 text-center font-semibold">{item.jugados}</td>
-                          <td className="py-3 px-2 text-center font-semibold text-emerald-600">{item.ganados}</td>
-                          <td className="py-3 px-2 text-center font-semibold text-amber-600">{item.empatados}</td>
-                          <td className="py-3 px-2 text-center font-semibold text-rose-600">{item.perdidos}</td>
-                          <td className="py-3 px-2 text-center text-slate-600">{item.golesFavor}</td>
-                          <td className="py-3 px-2 text-center text-slate-600">{item.golesContra}</td>
-                          <td className={`py-3 px-2 text-center font-bold ${item.diferenciaGol > 0 ? "text-emerald-600" : item.diferenciaGol < 0 ? "text-rose-600" : "text-slate-500"}`}>
-                            {item.diferenciaGol > 0 ? `+${item.diferenciaGol}` : item.diferenciaGol}
-                          </td>
-                          <td className="py-3 px-4 text-center font-black text-sm text-[#EF426F] bg-[#EF426F]/5">
-                            {item.puntos}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Botón de Descarga Imagen PNG de la Tabla de Posiciones */}
-              <div className="flex justify-end pt-1">
                 <button
-                  onClick={handleDownloadTableImage}
-                  disabled={downloadingImage}
-                  className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                  onClick={() => setSelectedZona("GOLEADORES")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                    selectedZona === "GOLEADORES"
+                      ? "bg-[#EF426F] text-white shadow-sm"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  }`}
                 >
-                  {downloadingImage ? "Generando..." : "Descargar Tabla de Posiciones (PNG)"}
+                  GOLEADORES
                 </button>
               </div>
             </div>
 
-            {/* Separador Visual */}
-            <div className="border-t border-slate-200 pt-4"></div>
-
-            {/* 2. TABLA DE GOLEADORES (UBICADA DEBAJO DE LAS TABLAS OFICIALES DE POSICIONES) */}
-            <div className="space-y-2">
-              <div
-                id="goleadores-table-card"
-                className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-xl space-y-4"
-              >
-                {/* Header de la Tabla de Goleadores */}
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-[#EF426F]/10 text-[#EF426F] p-3 rounded-2xl text-2xl font-black">
-                      ⚽
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                        Tabla Oficial de Goleadores
-                      </h2>
-                      <p className="text-xs text-slate-500 font-medium">
-                        Liga Necochea de Fútbol • Torneo Oficial {new Date().getFullYear()}
-                      </p>
+            {/* SI SELECCIONA ZONA A O ZONA B -> MUESTRA TABLA DE POSICIONES */}
+            {(selectedZona === "A" || selectedZona === "B") && (
+              <div className="space-y-3">
+                <div id="standings-table-card" className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm p-1">
+                  {/* Header Banner con el Logo Oficial de DataeNe */}
+                  <div className="bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png"
+                        alt="Data eNe"
+                        className="h-8 object-contain"
+                      />
+                      <div>
+                        <h3 className="font-black text-sm text-slate-900 uppercase">
+                          TABLA DE POSICIONES - ZONA {selectedZona}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 font-extrabold uppercase">
+                          Liga Necochea de Fútbol - Torneo Oficial de Primera
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <img
-                      src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png"
-                      alt="Data eNe"
-                      className="h-6 w-auto object-contain opacity-80"
-                    />
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-4 text-center w-10">#</th>
+                          <th className="py-3 px-4">EQUIPO</th>
+                          <th className="py-3 px-2 text-center">J</th>
+                          <th className="py-3 px-2 text-center">G</th>
+                          <th className="py-3 px-2 text-center">E</th>
+                          <th className="py-3 px-2 text-center">P</th>
+                          <th className="py-3 px-2 text-center">GF</th>
+                          <th className="py-3 px-2 text-center">GC</th>
+                          <th className="py-3 px-2 text-center">DIF</th>
+                          <th className="py-3 px-4 text-center bg-[#EF426F]/10 text-[#EF426F]">PTS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-800">
+                        {(selectedZona === "A" ? zonaA : zonaB).map((item, idx) => (
+                          <tr
+                            key={item.equipo}
+                            className={`hover:bg-slate-50 transition-colors ${
+                              idx < 4 ? "bg-emerald-50/30" : ""
+                            }`}
+                          >
+                            <td className="py-3 px-4 text-center font-black text-slate-400">
+                              {item.posicion}
+                            </td>
+                            <td className="py-3 px-4 font-black text-slate-900 flex items-center gap-2">
+                              {item.logo && (
+                                <img src={item.logo} alt="" className="w-6 h-6 object-contain" />
+                              )}
+                              <span>{item.equipo}</span>
+                            </td>
+                            <td className="py-3 px-2 text-center font-semibold">{item.jugados}</td>
+                            <td className="py-3 px-2 text-center font-semibold text-emerald-600">{item.ganados}</td>
+                            <td className="py-3 px-2 text-center font-semibold text-amber-600">{item.empatados}</td>
+                            <td className="py-3 px-2 text-center font-semibold text-rose-600">{item.perdidos}</td>
+                            <td className="py-3 px-2 text-center text-slate-600">{item.golesFavor}</td>
+                            <td className="py-3 px-2 text-center text-slate-600">{item.golesContra}</td>
+                            <td className={`py-3 px-2 text-center font-bold ${item.diferenciaGol > 0 ? "text-emerald-600" : item.diferenciaGol < 0 ? "text-rose-600" : "text-slate-500"}`}>
+                              {item.diferenciaGol > 0 ? `+${item.diferenciaGol}` : item.diferenciaGol}
+                            </td>
+                            <td className="py-3 px-4 text-center font-black text-sm text-[#EF426F] bg-[#EF426F]/5">
+                              {item.puntos}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                {/* Tabla de Goleadores */}
-                <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-400 font-extrabold uppercase tracking-wider text-[10px] border-b border-slate-100">
-                      <tr>
-                        <th className="py-3 px-3 text-center">#</th>
-                        <th className="py-3 px-4">Jugador</th>
-                        <th className="py-3 px-4">Equipo</th>
-                        <th className="py-3 px-4 text-center">Goles</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                      {goleadoresList.map((item) => (
-                        <tr
-                          key={item.nombre + item.equipo}
-                          className={`hover:bg-slate-50 transition-colors ${
-                            item.posicion === 1
-                              ? "bg-amber-50/50 font-bold"
-                              : item.posicion === 2
-                              ? "bg-slate-50/70"
-                              : item.posicion === 3
-                              ? "bg-orange-50/30"
-                              : ""
-                          }`}
-                        >
-                          <td className="py-3 px-3 text-center font-black">
-                            {item.posicion === 1 ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-amber-950 text-xs shadow-xs">
-                                🥇
-                              </span>
-                            ) : item.posicion === 2 ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-xs">
-                                🥈
-                              </span>
-                            ) : item.posicion === 3 ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600/20 text-amber-900 text-xs">
-                                🥉
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 font-bold">{item.posicion}</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-black text-slate-900 text-xs md:text-sm">
-                            {item.nombre}
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-slate-600 flex items-center gap-2">
-                            {item.logo && (
-                              <img
-                                src={item.logo}
-                                alt=""
-                                className="w-6 h-6 object-contain shrink-0"
-                              />
-                            )}
-                            <span>{item.equipo}</span>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <span className="inline-block bg-[#EF426F] text-white font-black text-xs px-3 py-1 rounded-full shadow-xs">
-                              ⚽ {item.goles}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {/* Botón de Descarga Imagen PNG de Posiciones */}
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={handleDownloadTableImage}
+                    disabled={downloadingImage}
+                    className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                  >
+                    {downloadingImage ? "Generando..." : "Descargar Tabla de Posiciones (PNG)"}
+                  </button>
                 </div>
               </div>
+            )}
 
-              {/* Botón de Descarga Imagen PNG de Goleadores */}
-              <div className="flex justify-end pt-1">
-                <button
-                  onClick={handleDownloadGoleadoresImage}
-                  disabled={downloadingGoleadoresImage}
-                  className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                >
-                  <span>📸</span>
-                  <span>
+            {/* SI SELECCIONA GOLEADORES -> MUESTRA TABLA DE GOLEADORES (ESTILO UNIFICADO CON POSICIONES) */}
+            {selectedZona === "GOLEADORES" && (
+              <div className="space-y-3">
+                <div id="goleadores-table-card" className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm p-1">
+                  {/* Header Banner con Logo Data eNe */}
+                  <div className="bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png"
+                        alt="Data eNe"
+                        className="h-8 object-contain"
+                      />
+                      <div>
+                        <h3 className="font-black text-sm text-slate-900 uppercase">
+                          TABLA OFICIAL DE GOLEADORES
+                        </h3>
+                        <p className="text-[10px] text-slate-500 font-extrabold uppercase">
+                          Liga Necochea de Fútbol - Torneo Oficial de Primera
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-4 text-center w-12">#</th>
+                          <th className="py-3 px-4">JUGADOR</th>
+                          <th className="py-3 px-4">EQUIPO</th>
+                          <th className="py-3 px-4 text-center bg-[#EF426F]/10 text-[#EF426F] w-24">GOLES</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-800">
+                        {goleadoresList.map((item) => (
+                          <tr
+                            key={item.nombre + item.equipo}
+                            className={`hover:bg-slate-50 transition-colors ${
+                              item.posicion === 1
+                                ? "bg-amber-50/40 font-bold"
+                                : item.posicion === 2
+                                ? "bg-slate-50/60"
+                                : item.posicion === 3
+                                ? "bg-orange-50/30"
+                                : ""
+                            }`}
+                          >
+                            <td className="py-3 px-4 text-center font-black text-slate-400">
+                              {item.posicion === 1 ? (
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-amber-950 text-xs shadow-xs">
+                                  🥇
+                                </span>
+                              ) : item.posicion === 2 ? (
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-xs">
+                                  🥈
+                                </span>
+                              ) : item.posicion === 3 ? (
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600/20 text-amber-900 text-xs">
+                                  🥉
+                                </span>
+                              ) : (
+                                item.posicion
+                              )}
+                            </td>
+                            <td className="py-3 px-4 font-black text-slate-900 text-xs md:text-sm">
+                              {item.nombre}
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-slate-700 flex items-center gap-2">
+                              {item.logo && (
+                                <img
+                                  src={item.logo}
+                                  alt=""
+                                  className="w-6 h-6 object-contain shrink-0"
+                                />
+                              )}
+                              <span>{item.equipo}</span>
+                            </td>
+                            <td className="py-3 px-4 text-center font-black text-sm text-[#EF426F] bg-[#EF426F]/5">
+                              {item.goles}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Botón de Descarga Imagen PNG de Goleadores */}
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={handleDownloadGoleadoresImage}
+                    disabled={downloadingGoleadoresImage}
+                    className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                  >
                     {downloadingGoleadoresImage
-                      ? "Generando imagen..."
+                      ? "Generando..."
                       : "Descargar Tabla de Goleadores (PNG)"}
-                  </span>
-                </button>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>
