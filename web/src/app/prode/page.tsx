@@ -90,6 +90,7 @@ export default function ProdeDataeNePage() {
 
   const [activeTab, setActiveTab] = useState<"fixture" | "ranking" | "amigos" | "info">("fixture");
   const [goleadoresList, setGoleadoresList] = useState<Goleador[]>([]);
+  const [goleadoresPage, setGoleadoresPage] = useState<number>(1);
   const [downloadingGoleadoresImage, setDownloadingGoleadoresImage] = useState<boolean>(false);
   const [partidos, setPartidos] = useState<Partido[]>([]);
   const [jornadas, setJornadas] = useState<string[]>([]);
@@ -584,6 +585,13 @@ export default function ProdeDataeNePage() {
   const filteredPartidos = selectedJornada
     ? partidos.filter((p) => p.jornada === selectedJornada)
     : partidos;
+
+  const goleadoresPerPage = 10;
+  const totalGoleadoresPages = Math.ceil(goleadoresList.length / goleadoresPerPage) || 1;
+  const paginatedGoleadores = goleadoresList.slice(
+    (goleadoresPage - 1) * goleadoresPerPage,
+    goleadoresPage * goleadoresPerPage
+  );
 
   return (
     <div className="min-h-screen bg-white text-slate-800 font-sans flex flex-col justify-between">
@@ -1338,7 +1346,7 @@ export default function ProdeDataeNePage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-800">
-                        {goleadoresList.map((item) => (
+                        {paginatedGoleadores.map((item) => (
                           <tr
                             key={item.nombre + item.equipo}
                             className={`hover:bg-slate-50 transition-colors ${
@@ -1391,12 +1399,34 @@ export default function ProdeDataeNePage() {
                   </div>
                 </div>
 
-                {/* Botón de Descarga Imagen PNG de Goleadores */}
-                <div className="flex justify-end pt-1">
+                {/* Paginación y Botón de Descarga Imagen PNG */}
+                <div className="flex items-center justify-between pt-1 flex-wrap gap-3">
+                  {/* Botones de Paginación */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setGoleadoresPage((p) => Math.max(1, p - 1))}
+                      disabled={goleadoresPage === 1}
+                      className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-black uppercase text-slate-700 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
+                    >
+                      ◄ Anterior
+                    </button>
+                    <span className="text-xs font-black text-slate-600 px-1">
+                      Página {goleadoresPage} de {totalGoleadoresPages}
+                    </span>
+                    <button
+                      onClick={() => setGoleadoresPage((p) => Math.min(totalGoleadoresPages, p + 1))}
+                      disabled={goleadoresPage === totalGoleadoresPages}
+                      className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-black uppercase text-slate-700 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
+                    >
+                      Siguiente ►
+                    </button>
+                  </div>
+
+                  {/* Botón Descargar PNG */}
                   <button
                     onClick={handleDownloadGoleadoresImage}
                     disabled={downloadingGoleadoresImage}
-                    className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    className="bg-[#7F35B2] hover:bg-[#6b2a99] text-white px-5 py-2 rounded-xl text-xs font-black uppercase transition-all shadow-sm active:scale-95 disabled:opacity-50"
                   >
                     {downloadingGoleadoresImage
                       ? "Generando..."
