@@ -59,7 +59,8 @@ type Partido = {
 };
 
 export default function SuperAdmin() {
-  const [activeTab, setActiveTab] = useState<"clientes" | "ligas" | "partidos">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "ligas" | "partidos" | "integracion">("clientes");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   
   // States para datos
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -710,6 +711,16 @@ export default function SuperAdmin() {
             }`}
           >
             Fixture (Partidos)
+          </button>
+          <button
+            onClick={() => setActiveTab("integracion")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === "integracion"
+                ? "border-[#ff7900] text-[#ff7900]"
+                : "border-transparent text-zinc-400 hover:text-white"
+            }`}
+          >
+            📦 Código para Vorks (iFrame & Widget)
           </button>
         </div>
 
@@ -1744,6 +1755,122 @@ export default function SuperAdmin() {
                       </>
                     );
                   })()}
+                </div>
+              </div>
+            )}
+
+            {/* TAB INTEGRACIÓN PARA VORKS */}
+            {activeTab === "integracion" && (
+              <div className="space-y-6">
+                <div className="bg-[#121214] border border-[#27272a] rounded-2xl p-6 shadow-xl space-y-6">
+                  <div className="flex items-center gap-3 border-b border-[#27272a] pb-4">
+                    <span className="text-3xl">📦</span>
+                    <div>
+                      <h2 className="text-lg font-bold text-white">Código de Integración para Desarrolladores (Vorks)</h2>
+                      <p className="text-xs text-zinc-400">
+                        Copiá estos bloques de código para incrustar el Prode, Widget o APIs en la web principal de Data eNe.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* Opción 1: iFrame Prode */}
+                    <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-5 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <span>1️⃣</span> Incrustar Aplicación del Prode Completa (iFrame)
+                          </h3>
+                          <p className="text-xs text-zinc-400">
+                            Recomendado para Vorks. Crea una página propia en Data eNe (ej. /prode) y pega este código HTML.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`<iframe src="https://widget-futbol-muove.vercel.app/prode" style="width:100%; height:1100px; border:none;" allow="clipboard-write"></iframe>`);
+                            setCopiedKey("iframe");
+                            setTimeout(() => setCopiedKey(null), 2000);
+                          }}
+                          className="bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs px-4 py-2 rounded-lg transition-all"
+                        >
+                          {copiedKey === "iframe" ? "✓ ¡Copiado!" : "📋 Copiar iFrame"}
+                        </button>
+                      </div>
+
+                      <pre className="bg-[#18181b] text-emerald-400 p-4 rounded-lg text-xs overflow-x-auto border border-zinc-800 font-mono">
+{`<iframe 
+  src="https://widget-futbol-muove.vercel.app/prode" 
+  style="width:100%; height:1100px; border:none;" 
+  allow="clipboard-write">
+</iframe>`}
+                      </pre>
+                    </div>
+
+                    {/* Opción 2: Widget flotante JS */}
+                    <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-5 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <span>2️⃣</span> Widget Flotante de Partidos (Script JS)
+                          </h3>
+                          <p className="text-xs text-zinc-400">
+                            Pega este script en cualquier sección del sitio para desplegar el widget lateral de partidos.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`<futbol-widget client-id="cc683950-7147-4638-b31f-a6810fcd73c0"></futbol-widget>\n<script src="https://widget-futbol-muove.vercel.app/widget.js"></script>`);
+                            setCopiedKey("widget");
+                            setTimeout(() => setCopiedKey(null), 2000);
+                          }}
+                          className="bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs px-4 py-2 rounded-lg transition-all"
+                        >
+                          {copiedKey === "widget" ? "✓ ¡Copiado!" : "📋 Copiar Widget JS"}
+                        </button>
+                      </div>
+
+                      <pre className="bg-[#18181b] text-amber-400 p-4 rounded-lg text-xs overflow-x-auto border border-zinc-800 font-mono">
+{`<futbol-widget client-id="cc683950-7147-4638-b31f-a6810fcd73c0"></futbol-widget>
+<script src="https://widget-futbol-muove.vercel.app/widget.js"></script>`}
+                      </pre>
+                    </div>
+
+                    {/* Opción 3: Endpoints API REST */}
+                    <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-5 space-y-3">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>3️⃣</span> Endpoints de APIs REST (JSON)
+                      </h3>
+                      <p className="text-xs text-zinc-400">
+                        Si Vorks prefiere consumir los datos puros desde su propio backend o frontend.
+                      </p>
+
+                      <div className="space-y-2 text-xs font-mono">
+                        <div className="flex items-center justify-between bg-[#18181b] p-3 rounded-lg border border-zinc-800">
+                          <div>
+                            <span className="text-blue-400 font-bold mr-2">GET</span>
+                            <span className="text-zinc-300">https://widget-futbol-muove.vercel.app/api/goleadores</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 font-sans">Tabla de Goleadores</span>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-[#18181b] p-3 rounded-lg border border-zinc-800">
+                          <div>
+                            <span className="text-blue-400 font-bold mr-2">GET</span>
+                            <span className="text-zinc-300">https://widget-futbol-muove.vercel.app/api/prode/standings</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 font-sans">Tablas de Posiciones Zona A/B</span>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-[#18181b] p-3 rounded-lg border border-zinc-800">
+                          <div>
+                            <span className="text-blue-400 font-bold mr-2">GET</span>
+                            <span className="text-zinc-300">https://widget-futbol-muove.vercel.app/api/prode/leaderboard</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 font-sans">Ranking General de Usuarios Prode</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
