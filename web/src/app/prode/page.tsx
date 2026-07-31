@@ -133,6 +133,32 @@ export default function ProdeDataeNePage() {
     }
   }, [activeTab]);
 
+  // Auto-resize para iFrame sin doble scroll
+  useEffect(() => {
+    const sendHeight = () => {
+      if (typeof window !== "undefined") {
+        const height = document.body.offsetHeight || document.documentElement.scrollHeight;
+        window.parent.postMessage({ type: "prode-resize", height }, "*");
+      }
+    };
+
+    sendHeight();
+    const timeout = setTimeout(sendHeight, 300);
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(() => {
+        sendHeight();
+      });
+      observer.observe(document.body);
+      return () => {
+        clearTimeout(timeout);
+        observer.disconnect();
+      };
+    }
+
+    return () => clearTimeout(timeout);
+  }, [activeTab, selectedJornada, user, showAuthModal, showGroupModal, selectedZona, leaderboard, partidos]);
+
   async function handleDownloadTableImage() {
     const node = document.getElementById("standings-table-card");
     if (!node) return;
@@ -594,20 +620,10 @@ export default function ProdeDataeNePage() {
   );
 
   return (
-    <div className="min-h-screen bg-white text-slate-800 font-sans flex flex-col justify-between">
-      <header className="border-b border-slate-200 bg-white sticky top-0 z-40 px-4 py-2.5 shadow-sm">
-        <div className="max-w-5xl mx-auto flex items-center justify-center">
-          <img
-            src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png"
-            alt="Data eNe"
-            className="h-8 w-auto object-contain"
-          />
-        </div>
-      </header>
-
-      <div className="bg-slate-50 border-b border-slate-200 py-4 px-4 text-center">
-        <div className="max-w-3xl mx-auto space-y-1">
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+    <div className="bg-white text-slate-800 font-sans flex flex-col justify-between">
+      <div className="bg-slate-50 border-b border-slate-200 py-2.5 px-4 text-center">
+        <div className="max-w-3xl mx-auto space-y-0.5">
+          <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">
             El PRODE de la <span className="text-[#EF426F]">Liga de Necochea</span>
           </h1>
           <p className="text-[11px] text-slate-600 max-w-xl mx-auto">
@@ -616,9 +632,9 @@ export default function ProdeDataeNePage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto w-full px-4 py-4 flex-grow">
+      <main className="max-w-5xl mx-auto w-full px-4 py-2 flex-grow">
         {/* Navigation Tabs Bar */}
-        <div className="grid grid-cols-2 md:flex bg-[#7F35B2] p-1.5 mb-4 max-w-4xl mx-auto shadow-md rounded-xl gap-1">
+        <div className="grid grid-cols-2 md:flex bg-[#7F35B2] p-1.5 mb-2.5 max-w-4xl mx-auto shadow-md rounded-xl gap-1">
           <button
             onClick={() => setActiveTab("fixture")}
             className={`md:flex-1 py-2.5 px-2 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all text-center rounded-lg ${
@@ -654,9 +670,9 @@ export default function ProdeDataeNePage() {
         </div>
 
 
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-3">
           {user ? (
-            <div className="flex items-center gap-3 bg-slate-100 border border-slate-200 px-4 py-2 rounded-xl text-xs shadow-sm">
+            <div className="flex items-center gap-3 bg-slate-100 border border-slate-200 px-4 py-1.5 rounded-xl text-xs shadow-sm">
               <span className="font-extrabold text-slate-900">👤 {user.nombre}</span>
               <button
                 onClick={() => {
@@ -682,7 +698,7 @@ export default function ProdeDataeNePage() {
         </div>
 
         {activeTab === "fixture" && (
-          <div className="space-y-6">
+          <div className="space-y-3.5">
             {jornadas.length > 0 && (
               <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm flex-wrap gap-2">
                 <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Jornada Activa:</span>
@@ -995,7 +1011,7 @@ export default function ProdeDataeNePage() {
               })}
             </div>
 
-            <div className="sticky bottom-4 z-30 flex justify-center pt-2 px-2">
+            <div className="flex justify-center pt-2 px-2">
               <button
                 onClick={handleSavePredictions}
                 className="w-full max-w-md bg-[#EF426F] hover:bg-[#d83760] text-white font-black text-xs sm:text-sm py-3.5 px-6 rounded-2xl shadow-xl transition-all border border-white/20 active:scale-95"
