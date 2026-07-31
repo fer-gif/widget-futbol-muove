@@ -208,7 +208,7 @@
       }
       const nombreMedio = this.getAttribute("client-name") || "Diario DataNE";
       const clientId = this.getAttribute("client-id") || "";
-      const prodeUrl = `${baseUrl}/prode${clientId ? `?client-id=${clientId}` : ""}`;
+      const prodeUrl = this.getAttribute("prode-url") || "https://dataene.com.ar/futbol-neco/";
 
       const styleTemplate = `
         <style>
@@ -569,7 +569,7 @@
           ${this.estilo.mostrar_prode ? `
             <div class="prode-promo-bar">
               <span style="color:#a1a1aa; font-size:11px; font-weight:700;">¿Quién gana esta fecha?</span>
-              <a href="${prodeUrl}" target="_blank" class="prode-promo-link">
+              <a href="${prodeUrl}" target="_top" class="prode-promo-link">
                 ¡Jugá al Prode de tu equipo y ganá! ➔
               </a>
             </div>
