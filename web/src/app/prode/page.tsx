@@ -97,6 +97,7 @@ export default function ProdeDataeNePage() {
   const [selectedJornada, setSelectedJornada] = useState<string>("");
   const [predictions, setPredictions] = useState<Record<string, { local: number; visitante: number }>>({});
   const [savedPredictions, setSavedPredictions] = useState<Record<string, { local: number; visitante: number }>>({});
+  const [isPendingSave, setIsPendingSave] = useState<boolean>(false);
   
   // Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -296,6 +297,7 @@ export default function ProdeDataeNePage() {
       fetchUserPredictions(user.id);
     } else {
       setSavedPredictions({});
+      setPredictions({});
     }
   }, [user?.id]);
 
@@ -314,7 +316,7 @@ export default function ProdeDataeNePage() {
           }
         });
         setSavedPredictions(savedMap);
-        setPredictions((prev) => ({ ...savedMap, ...prev }));
+        setPredictions(savedMap);
 
         if (typeof data.puntosTotales === "number") {
           setUser((prev) => {
@@ -429,6 +431,7 @@ export default function ProdeDataeNePage() {
 
   async function handleSavePredictions() {
     if (!user) {
+      setIsPendingSave(true);
       setShowAuthModal(true);
       setAuthMode("login");
       setAuthError("Ingresá o registrate con tu apodo para guardar tus pronósticos.");
@@ -464,8 +467,11 @@ export default function ProdeDataeNePage() {
         } catch (e) {}
         setShowAuthModal(false);
         setAuthPin("");
-        if (Object.keys(predictions).length > 0) {
-          savePredictionsWithUser(loggedUser);
+        if (isPendingSave && Object.keys(predictions).length > 0) {
+          await savePredictionsWithUser(loggedUser);
+          setIsPendingSave(false);
+        } else {
+          fetchUserPredictions(loggedUser.id);
         }
       } else {
         setAuthError(data.error || "Datos incorrectos.");
@@ -685,6 +691,9 @@ export default function ProdeDataeNePage() {
               <button
                 onClick={() => {
                   setUser(null);
+                  setSavedPredictions({});
+                  setPredictions({});
+                  setIsPendingSave(false);
                   localStorage.removeItem(`prode_user_${clientId}`);
                 }}
                 className="text-slate-500 hover:text-[#EF426F] text-xs font-semibold ml-2 underline"
