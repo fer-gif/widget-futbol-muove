@@ -142,6 +142,18 @@ export default function ProdeDataeNePage() {
     };
   }, []);
 
+  // Bloquear scroll de fondo cuando hay un modal abierto en celulares
+  useEffect(() => {
+    if (showAuthModal || showCreateConfirmModal || showGroupModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showAuthModal, showCreateConfirmModal, showGroupModal]);
+
   // Auto-resize para iFrame sin doble scroll
   useEffect(() => {
     const sendHeight = () => {
@@ -1473,8 +1485,8 @@ export default function ProdeDataeNePage() {
       </main>
 
       {showCreateConfirmModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-sm w-full space-y-4 relative shadow-2xl text-center">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-sm w-full space-y-4 relative shadow-2xl text-center max-h-[85vh] overflow-y-auto my-auto">
             <button onClick={() => setShowCreateConfirmModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 font-extrabold text-sm">✕</button>
 
             <span className="text-3xl block">🏆</span>
@@ -1504,16 +1516,16 @@ export default function ProdeDataeNePage() {
       )}
 
       {showAuthModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-sm w-full space-y-5 relative shadow-2xl">
-            <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 font-extrabold text-sm">✕</button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 pt-6 sm:pt-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 max-w-sm w-full space-y-3.5 sm:space-y-5 relative shadow-2xl max-h-[85vh] overflow-y-auto my-auto sm:my-0">
+            <button onClick={() => setShowAuthModal(false)} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-slate-400 hover:text-slate-900 font-extrabold text-sm z-10 p-1">✕</button>
 
             <div className="text-center space-y-1">
-              <img src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png" alt="Data eNe" className="h-7 mx-auto object-contain mb-2" />
-              <h3 className="text-lg font-black text-slate-900">
+              <img src="https://dataene.com.ar/uploads/cliente/marca/20210210092501_positivo-horizontal-2x.png" alt="Data eNe" className="h-6 sm:h-7 mx-auto object-contain mb-1" />
+              <h3 className="text-base sm:text-lg font-black text-slate-900">
                 {authMode === "login" ? "Ingresá a tu Cuenta" : authMode === "register" ? "Creá tu Perfil de Jugador" : "Restablecer tu PIN"}
               </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed">
                 {authMode === "login"
                   ? "Ingresá tu Email y tu PIN de 4 números."
                   : authMode === "register"
