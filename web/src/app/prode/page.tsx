@@ -628,7 +628,7 @@ export default function ProdeDataeNePage() {
   );
 
   return (
-    <div className="min-h-screen bg-white text-slate-800 font-sans flex flex-col justify-between">
+    <div className="bg-white text-slate-800 font-sans flex flex-col">
       <div className="bg-slate-50 border-b border-slate-200 py-2.5 px-4 text-center">
         <div className="max-w-3xl mx-auto space-y-0.5">
           <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">
@@ -640,7 +640,7 @@ export default function ProdeDataeNePage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto w-full px-4 py-2 flex-grow">
+      <main className="max-w-5xl mx-auto w-full px-4 py-2">
         {/* Navigation Tabs Bar */}
         <div className="grid grid-cols-2 md:flex bg-[#7F35B2] p-1.5 mb-2.5 max-w-4xl mx-auto shadow-md rounded-xl gap-1">
           <button
@@ -1609,7 +1609,7 @@ export default function ProdeDataeNePage() {
         </div>
       )}
 
-      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-500 bg-slate-50 flex flex-col sm:flex-row items-center justify-center gap-2">
+      <footer className="border-t border-slate-200 mt-6 py-4 text-center text-xs text-slate-500 bg-slate-50 flex flex-col sm:flex-row items-center justify-center gap-2">
         <span>© {new Date().getFullYear()} Data eNe | Todos los derechos reservados. Prode Desarrollado por</span>
         <a
           href="https://agenciamuove.com/#servicios"
