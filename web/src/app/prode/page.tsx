@@ -853,9 +853,11 @@ export default function ProdeDataeNePage() {
 
                 const isFin = p.estado_partido === "finalizado";
                 const isEnVivo = p.estado_partido === "en_vivo";
+                const isSuspendido = p.estado_partido === "suspendido";
+                const isDemorado = p.estado_partido === "demorado" || p.estado_partido === "postergado";
                 const matchTime = p.fecha_hora ? new Date(p.fecha_hora) : null;
                 const isHoraPasada = matchTime && !isNaN(matchTime.getTime()) && new Date() >= matchTime;
-                const isBloqueado = Boolean(isFin || isEnVivo || isHoraPasada);
+                const isBloqueado = Boolean(isFin || isEnVivo || isHoraPasada || isSuspendido || isDemorado);
 
                 const isSaved = saved && saved.local === pred.local && saved.visitante === pred.visitante;
                 const isModified = saved && (saved.local !== pred.local || saved.visitante !== pred.visitante);
@@ -896,6 +898,8 @@ export default function ProdeDataeNePage() {
                     className={`bg-white border rounded-2xl p-4 sm:p-5 transition-all flex flex-col justify-between gap-3 shadow-sm ${
                       isFin
                         ? "border-slate-300 bg-slate-50/50"
+                        : isSuspendido
+                        ? "border-rose-200 bg-rose-50/20"
                         : isSaved
                         ? "border-emerald-200 hover:border-emerald-400"
                         : "border-slate-200 hover:border-[#EF426F]"
@@ -905,9 +909,19 @@ export default function ProdeDataeNePage() {
                     <div className="flex justify-between items-center text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2.5 gap-2 flex-wrap">
                       <span className="truncate max-w-[140px] sm:max-w-none">{p.liga_nombre}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-extrabold text-[10px]">
-                          🕒 {formatFechaHora(p.fecha_hora)}
-                        </span>
+                        {isSuspendido ? (
+                          <span className="bg-rose-500/10 text-rose-600 border border-rose-500/30 px-2 py-0.5 rounded font-black text-[10px]">
+                            🛑 SUSPENDIDO
+                          </span>
+                        ) : isDemorado ? (
+                          <span className="bg-amber-500/10 text-amber-600 border border-amber-500/30 px-2 py-0.5 rounded font-black text-[10px]">
+                            ⚠️ DEMORADO
+                          </span>
+                        ) : (
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-extrabold text-[10px]">
+                            🕒 {formatFechaHora(p.fecha_hora)}
+                          </span>
+                        )}
                         <span className="bg-[#EF426F] text-white px-2 py-0.5 rounded font-extrabold text-[10px]">
                           {p.jornada}
                         </span>
@@ -956,6 +970,16 @@ export default function ProdeDataeNePage() {
                             <span className="font-black text-sm sm:text-base bg-[#7F35B2] text-white px-2 py-1 rounded-lg shadow-xs">
                               {p.goles_local} - {p.goles_visitante}
                             </span>
+                          </div>
+                        ) : isSuspendido ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[9px] font-black text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded">SUSPENDIDO</span>
+                            <span className="font-black text-slate-400 text-xs sm:text-sm">VS</span>
+                          </div>
+                        ) : isDemorado ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[9px] font-black text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">DEMORADO</span>
+                            <span className="font-black text-slate-400 text-xs sm:text-sm">VS</span>
                           </div>
                         ) : isEnVivo ? (
                           <div className="flex flex-col items-center gap-1">
@@ -1017,6 +1041,14 @@ export default function ProdeDataeNePage() {
                             🏁 Partido Finalizado ({p.goles_local} - {p.goles_visitante}) — No habías cargado pronóstico
                           </div>
                         )
+                      ) : isSuspendido ? (
+                        <div className="w-full p-2 rounded-xl text-center bg-rose-50 text-rose-700 border border-rose-200 font-bold">
+                          🛑 Partido Suspendido {saved ? `(Tu pronóstico: ${saved.local} - ${saved.visitante})` : "(Sin pronóstico cargado)"}
+                        </div>
+                      ) : isDemorado ? (
+                        <div className="w-full p-2 rounded-xl text-center bg-amber-50 text-amber-800 border border-amber-200 font-bold">
+                          ⚠️ Partido Demorado {saved ? `(Tu pronóstico: ${saved.local} - ${saved.visitante})` : "(Sin pronóstico cargado)"}
+                        </div>
                       ) : isBloqueado ? (
                         <div className="w-full p-2 rounded-xl text-center bg-amber-50 text-amber-800 border border-amber-200 font-bold">
                           🔒 Partido Cerrado {saved ? `(Tu pronóstico: ${saved.local} - ${saved.visitante})` : "(Sin pronóstico cargado)"}

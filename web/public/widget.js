@@ -523,14 +523,37 @@
       const cardsHtml = this.partidos.map(p => {
         const esLive = p.estado_partido === "en_vivo";
         const esFinalizado = p.estado_partido === "finalizado";
-        const showGoals = p.estado_partido !== "programado" || esLive;
+        const esSuspendido = p.estado_partido === "suspendido";
+        const esDemorado = p.estado_partido === "demorado" || p.estado_partido === "postergado";
         const fechaHoraText = this.formatFechaHora(p.fecha_hora);
+
+        let subBarStatus = `📅 ${fechaHoraText}`;
+        if (esLive) {
+          subBarStatus = `<span style="color:#22c55e; font-weight:bold;">● EN VIVO</span>`;
+        } else if (esFinalizado) {
+          subBarStatus = "FINALIZADO";
+        } else if (esSuspendido) {
+          subBarStatus = `<span style="color:#ef4444; font-weight:900; background:rgba(239,68,68,0.2); padding:2px 6px; border-radius:4px;">🛑 SUSPENDIDO</span>`;
+        } else if (esDemorado) {
+          subBarStatus = `<span style="color:#f59e0b; font-weight:900; background:rgba(245,158,11,0.2); padding:2px 6px; border-radius:4px;">⚠️ DEMORADO</span>`;
+        }
+
+        let scoreDisplay = "VS";
+        if (esLive || esFinalizado) {
+          scoreDisplay = `${p.goles_local} - ${p.goles_visitante}`;
+        } else if (esSuspendido || esDemorado) {
+          if (p.goles_local > 0 || p.goles_visitante > 0) {
+            scoreDisplay = `${p.goles_local} - ${p.goles_visitante}`;
+          } else {
+            scoreDisplay = "VS";
+          }
+        }
 
         return `
           <div class="match-card">
             <div class="card-top-bar">${p.liga_nombre}</div>
             <div class="card-sub-bar">
-              <span>${esLive ? `<span style="color:#22c55e; font-weight:bold;">● EN VIVO</span>` : esFinalizado ? "FINALIZADO" : `📅 ${fechaHoraText}`}</span>
+              <span>${subBarStatus}</span>
               ${p.jornada ? `<span style="color:#d4d4d8; font-weight:700;">${p.jornada}</span>` : ""}
             </div>
             <div class="card-body">
@@ -539,7 +562,7 @@
                 <span class="team-name">${p.equipo_local.nombre}</span>
               </div>
               <div style="color:${mainTextColor}; font-size:16px; font-weight:900; font-family:${fontFamilyCss};">
-                ${showGoals ? `${p.goles_local} - ${p.goles_visitante}` : "VS"}
+                ${scoreDisplay}
               </div>
               <div class="team-block">
                 <img src="${resolveLogoUrl(p.equipo_visitante.logo)}" alt="" />
