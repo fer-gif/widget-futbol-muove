@@ -287,6 +287,32 @@ export default function SuperAdmin() {
     }
   }
 
+  async function handleMoveNews(index: number, direction: "up" | "down") {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newsList.length) return;
+
+    const updated = [...newsList];
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
+
+    setNewsList(updated);
+
+    try {
+      const res = await fetch("/api/news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reorder", newsList: updated }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.noticias) {
+        setNewsList(data.noticias);
+      }
+    } catch (e) {
+      console.error("Error al reordenar noticias:", e);
+    }
+  }
+
   // --- ACCIONES CLIENTES ---
   async function handleCreateCliente(e: React.FormEvent) {
     e.preventDefault();
@@ -2126,18 +2152,43 @@ export default function SuperAdmin() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {newsList.map((item) => (
+                      {newsList.map((item, index) => (
                         <div
                           key={item.id}
                           className={`bg-[#121214] border rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 transition-all ${
                             item.active ? "border-[#27272a] hover:border-zinc-700" : "border-zinc-800 opacity-60 bg-zinc-950"
                           }`}
                         >
-                          <div className="flex items-center gap-4 w-full md:w-auto flex-1">
+                          <div className="flex items-center gap-3 w-full md:w-auto flex-1">
+                            {/* Botones de Reordenar ▲ / ▼ */}
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <button
+                                disabled={index === 0}
+                                onClick={() => handleMoveNews(index, "up")}
+                                className="w-6 h-6 rounded bg-[#18181b] border border-zinc-700 hover:border-[#ff7900] hover:text-[#ff7900] disabled:opacity-25 text-[10px] font-black flex items-center justify-center transition-all"
+                                title="Subir orden"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                disabled={index === newsList.length - 1}
+                                onClick={() => handleMoveNews(index, "down")}
+                                className="w-6 h-6 rounded bg-[#18181b] border border-zinc-700 hover:border-[#ff7900] hover:text-[#ff7900] disabled:opacity-25 text-[10px] font-black flex items-center justify-center transition-all"
+                                title="Bajar orden"
+                              >
+                                ▼
+                              </button>
+                            </div>
+
+                            {/* Badge Posición */}
+                            <span className="w-6 text-center text-xs font-black text-[#ff7900] bg-[#ff7900]/10 py-1 rounded-md border border-[#ff7900]/20 shrink-0">
+                              #{index + 1}
+                            </span>
+
                             <img
                               src={item.image}
                               alt=""
-                              className="w-20 h-16 rounded-lg object-cover border border-zinc-800 shrink-0"
+                              className="w-20 h-16 rounded-lg object-cover border border-zinc-800 shrink-0 ml-1"
                             />
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">

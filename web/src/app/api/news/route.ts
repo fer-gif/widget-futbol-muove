@@ -106,13 +106,36 @@ export async function GET(req: Request) {
   }
 }
 
-// POST: Crear, alternar o eliminar noticias
+// POST: Crear, alternar, reordenar o eliminar noticias
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, id, url, title, image, description, siteName, active } = body;
+    const { action, id, url, title, image, description, siteName, active, newsList: inputNewsList } = body;
 
     let newsList = getLocalNews();
+
+    // ACCIÓN: Reordenar noticias
+    if (action === "reorder" && Array.isArray(inputNewsList)) {
+      const baseTime = Date.now();
+      const reorderedNews: NewsItem[] = inputNewsList.map((item: NewsItem, idx: number) => ({
+        ...item,
+        createdAt: new Date(baseTime - idx * 1000).toISOString(),
+      }));
+
+      // Guardar en Supabase
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        try {
+          for (const item of reorderedNews) {
+            await supabase.from("noticias").update({ created_at: item.createdAt }).eq("id", item.id);
+          }
+        } catch (e) {
+          console.error("Error al actualizar orden en Supabase:", e);
+        }
+      }
+
+      saveLocalNews(reorderedNews);
+      return NextResponse.json({ success: true, noticias: reorderedNews });
+    }
 
     // ACCIÓN: Eliminar noticia
     if (action === "delete") {
@@ -133,7 +156,7 @@ export async function POST(req: Request) {
       newsList = newsList.filter((n) => String(n.id) !== String(id));
       saveLocalNews(newsList);
 
-      // Si Supabase está disponible, responder con el dataset actualizado
+      // Responder con el dataset actualizado
       if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
         try {
           const { data } = await supabase.from("noticias").select("*").order("created_at", { ascending: false });
