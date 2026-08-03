@@ -16,7 +16,7 @@ export interface NewsItem {
 
 const LOCAL_DATA_PATH = path.join(process.cwd(), "src", "data", "noticias.json");
 
-// In-memory cache para mantener cambios en ejecución serverless (Vercel)
+// Cache en memoria para la instancia
 let inMemoryNews: NewsItem[] | null = null;
 
 function getLocalNews(): NewsItem[] {
@@ -42,7 +42,7 @@ function saveLocalNews(news: NewsItem[]) {
     }
     fs.writeFileSync(LOCAL_DATA_PATH, JSON.stringify(news, null, 2), "utf-8");
   } catch (e) {
-    // Si el disco es de solo lectura (Vercel serverless), inMemoryNews mantiene los datos en sesión
+    // Disco en solo lectura en Vercel
   }
 }
 
@@ -72,31 +72,103 @@ function mapToSupabase(item: NewsItem): any {
   };
 }
 
-// GET: Obtener todas las noticias (activas o todas si es admin)
+// ------------------------------------------------------------------
+// PERSISTENCIA GARANTIZADA EN SUPABASE
+// ------------------------------------------------------------------
+async function getSupabaseNews(): Promise<NewsItem[] | null> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return null;
+  }
+
+  // 1. Probar tabla dedicada 'noticias'
+  try {
+    const { data, error } = await supabase.from("noticias").select("*").order("created_at", { ascending: false });
+    if (!error && data && data.length > 0) {
+      return data.map(mapFromSupabase);
+    }
+  } catch (e) {}
+
+  // 2. Probar almacén persistente en 'configuracion_widgets' (para prevenir reseteos en redeploys)
+  try {
+    const { data, error } = await supabase
+      .from("configuracion_widgets")
+      .select("logo_medio_url")
+      .eq("color_primario", "NOTICIAS_STORE")
+      .maybeSingle();
+
+    if (!error && data && data.logo_medio_url) {
+      const parsed = JSON.parse(data.logo_medio_url);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+async function saveSupabaseNews(newsList: NewsItem[]) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return;
+  }
+
+  // 1. Guardar en tabla 'noticias' si existe
+  try {
+    for (const item of newsList) {
+      await supabase.from("noticias").upsert(mapToSupabase(item));
+    }
+  } catch (e) {}
+
+  // 2. Guardar en respaldo permanente en 'configuracion_widgets'
+  try {
+    const payload = {
+      cliente_id: "00000000-0000-0000-0000-000000000000",
+      color_primario: "NOTICIAS_STORE",
+      color_secundario: "#000000",
+      logo_medio_url: JSON.stringify(newsList),
+      mostrar_escudos: true,
+    };
+
+    const { data: existing } = await supabase
+      .from("configuracion_widgets")
+      .select("id")
+      .eq("color_primario", "NOTICIAS_STORE")
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from("configuracion_widgets").update(payload).eq("id", existing.id);
+    } else {
+      await supabase.from("configuracion_widgets").insert([payload]);
+    }
+  } catch (e) {
+    console.error("Error guardando noticias en Supabase:", e);
+  }
+}
+
+async function deleteFromSupabase(id: string) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return;
+  }
+  try {
+    await supabase.from("noticias").delete().eq("id", id);
+  } catch (e) {}
+}
+
+// GET: Obtener noticias (activas o todas)
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const all = searchParams.get("all") === "true";
 
-    // 1. Intentar leer desde Supabase
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      try {
-        let query = supabase.from("noticias").select("*").order("created_at", { ascending: false });
-        if (!all) {
-          query = query.eq("active", true);
-        }
-        const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-          const mapped = data.map(mapFromSupabase);
-          return NextResponse.json({ success: true, noticias: mapped });
-        }
-      } catch (e) {
-        // Fallback si la tabla no existe aún en Supabase
-      }
+    // 1. Intentar obtener desde Supabase
+    let news = await getSupabaseNews();
+
+    // 2. Fallback a memoria / local
+    if (!news) {
+      news = getLocalNews();
     }
 
-    // 2. Fallback a memoria / archivo local
-    let news = getLocalNews();
+    // Actualizar cache en memoria
+    inMemoryNews = news;
+
     if (!all) {
       news = news.filter((n) => n.active);
     }
@@ -112,9 +184,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, id, url, title, image, description, siteName, active, newsList: inputNewsList } = body;
 
-    let newsList = getLocalNews();
+    let newsList = (await getSupabaseNews()) || getLocalNews();
 
-    // ACCIÓN: Reordenar noticias
+    // ACCIÓN: Reordenar
     if (action === "reorder" && Array.isArray(inputNewsList)) {
       const baseTime = Date.now();
       const reorderedNews: NewsItem[] = inputNewsList.map((item: NewsItem, idx: number) => ({
@@ -122,54 +194,28 @@ export async function POST(req: Request) {
         createdAt: new Date(baseTime - idx * 1000).toISOString(),
       }));
 
-      // Guardar en Supabase
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        try {
-          for (const item of reorderedNews) {
-            await supabase.from("noticias").update({ created_at: item.createdAt }).eq("id", item.id);
-          }
-        } catch (e) {
-          console.error("Error al actualizar orden en Supabase:", e);
-        }
-      }
-
       saveLocalNews(reorderedNews);
+      await saveSupabaseNews(reorderedNews);
+
       return NextResponse.json({ success: true, noticias: reorderedNews });
     }
 
-    // ACCIÓN: Eliminar noticia
+    // ACCIÓN: Eliminar
     if (action === "delete") {
       if (!id) {
         return NextResponse.json({ success: false, error: "ID requerido para eliminar" }, { status: 400 });
       }
 
-      // Eliminar de Supabase si está activo
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        try {
-          await supabase.from("noticias").delete().eq("id", id);
-        } catch (e) {
-          console.error("Error al eliminar en Supabase:", e);
-        }
-      }
-
-      // Eliminar localmente / en memoria
+      await deleteFromSupabase(id);
       newsList = newsList.filter((n) => String(n.id) !== String(id));
-      saveLocalNews(newsList);
 
-      // Responder con el dataset actualizado
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        try {
-          const { data } = await supabase.from("noticias").select("*").order("created_at", { ascending: false });
-          if (data) {
-            return NextResponse.json({ success: true, noticias: data.map(mapFromSupabase) });
-          }
-        } catch (e) {}
-      }
+      saveLocalNews(newsList);
+      await saveSupabaseNews(newsList);
 
       return NextResponse.json({ success: true, noticias: newsList });
     }
 
-    // ACCIÓN: Alternar estado activo / oculto
+    // ACCIÓN: Alternar activo / oculto
     if (action === "toggle") {
       if (!id) {
         return NextResponse.json({ success: false, error: "ID requerido para alternar" }, { status: 400 });
@@ -178,27 +224,10 @@ export async function POST(req: Request) {
       const target = newsList.find((n) => String(n.id) === String(id));
       const nextActive = target ? !target.active : false;
 
-      // Actualizar en Supabase
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        try {
-          await supabase.from("noticias").update({ active: nextActive }).eq("id", id);
-        } catch (e) {
-          console.error("Error al alternar estado en Supabase:", e);
-        }
-      }
-
-      // Actualizar localmente
       newsList = newsList.map((n) => (String(n.id) === String(id) ? { ...n, active: nextActive } : n));
-      saveLocalNews(newsList);
 
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        try {
-          const { data } = await supabase.from("noticias").select("*").order("created_at", { ascending: false });
-          if (data) {
-            return NextResponse.json({ success: true, noticias: data.map(mapFromSupabase) });
-          }
-        } catch (e) {}
-      }
+      saveLocalNews(newsList);
+      await saveSupabaseNews(newsList);
 
       return NextResponse.json({ success: true, noticias: newsList });
     }
@@ -219,31 +248,14 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    // Guardar en Supabase
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      try {
-        await supabase.from("noticias").upsert(mapToSupabase(newItem));
-      } catch (e) {
-        console.error("Error al hacer upsert en Supabase:", e);
-      }
-    }
-
-    // Guardar localmente
     newsList = [newItem, ...newsList.filter((n) => String(n.id) !== String(newItem.id))];
-    saveLocalNews(newsList);
 
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      try {
-        const { data } = await supabase.from("noticias").select("*").order("created_at", { ascending: false });
-        if (data) {
-          return NextResponse.json({ success: true, noticia: newItem, noticias: data.map(mapFromSupabase) });
-        }
-      } catch (e) {}
-    }
+    saveLocalNews(newsList);
+    await saveSupabaseNews(newsList);
 
     return NextResponse.json({ success: true, noticia: newItem, noticias: newsList });
   } catch (error) {
-    console.error("Error guardando o eliminando noticia:", error);
+    console.error("Error procesando solicitud de noticias:", error);
     return NextResponse.json({ success: false, error: "Error interno al procesar la solicitud" }, { status: 500 });
   }
 }
