@@ -1,0 +1,32 @@
+[
+  {
+    "id": "news-1785771238892",
+    "url": "https://dataene.com.ar/nota/16790/ministerio-vencio-2-0-a-argentinos-y-acaricia-el-ascenso-al-torneo-regional/",
+    "title": "Ministerio venció 2-0 a Argentinos y acaricia el ascenso al Torneo Regional - Data eNe",
+    "image": "https://dataene.com.ar/uploads/noticias/2/2026/08/20260802214443_ministerio.jpg",
+    "description": "​​​​​​​Ministerio de Quequén dio un paso fundamental hacia el gran objetivo de la temporada. E",
+    "siteName": "Data eNe",
+    "active": true,
+    "createdAt": "2026-08-03T15:33:58.892Z"
+  },
+  {
+    "id": "news-1",
+    "url": "https://ecosdiarios.com/",
+    "title": "Liga Necochense: Se viene la Fecha 7 con grandes partidos en la ciudad y la zona",
+    "image": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80",
+    "description": "Toda la previa de una jornada decisiva en la Liga Necochense de Fútbol. Mirá los horarios y los convocados.",
+    "siteName": "Ecos Diarios",
+    "active": true,
+    "createdAt": "2026-08-03T10:00:00.000Z"
+  },
+  {
+    "id": "news-2",
+    "url": "https://tsnnecochea.com.ar/",
+    "title": "Del Valle vs Ministerio: El clásico que paraliza a Quequén y Necochea",
+    "image": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80",
+    "description": "Ambos equipos llegan con chances de pelear arriba en la tabla de posiciones.",
+    "siteName": "TSN Necochea",
+    "active": true,
+    "createdAt": "2026-08-02T18:30:00.000Z"
+  }
+]

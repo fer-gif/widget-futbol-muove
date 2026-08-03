@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toPng } from "html-to-image";
 import { supabase } from "@/lib/supabase";
+import NewsCarousel from "@/components/NewsCarousel";
 
 type Partido = {
   id: string;
@@ -659,6 +660,9 @@ export default function ProdeDataeNePage() {
       </div>
 
       <main className="max-w-5xl mx-auto w-full px-4 py-2">
+        {/* Carrusel de Noticias de Necochea */}
+        <NewsCarousel />
+
         {/* Navigation Tabs Bar */}
         <div className="grid grid-cols-2 md:flex bg-[#7F35B2] p-1.5 mb-2.5 max-w-4xl mx-auto shadow-md rounded-xl gap-1">
           <button
