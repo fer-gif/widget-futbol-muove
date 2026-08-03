@@ -88,7 +88,7 @@ async function getSupabaseNews(): Promise<NewsItem[] | null> {
     }
   } catch (e) {}
 
-  // 2. Probar almacén persistente en 'configuracion_widgets' (para prevenir reseteos en redeploys)
+  // 2. Probar almacén persistente en 'configuracion_widgets'
   try {
     const { data, error } = await supabase
       .from("configuracion_widgets")
@@ -110,33 +110,54 @@ async function saveSupabaseNews(newsList: NewsItem[]) {
     return;
   }
 
-  // 1. Guardar en tabla 'noticias' si existe
+  // 1. Intentar guardar en tabla 'noticias' si existe
   try {
     for (const item of newsList) {
-      await supabase.from("noticias").upsert(mapToSupabase(item));
+      const { error } = await supabase.from("noticias").upsert(mapToSupabase(item));
+      if (error) console.error("Error al hacer upsert en noticias:", error.message);
     }
   } catch (e) {}
 
-  // 2. Guardar en respaldo permanente en 'configuracion_widgets'
+  // 2. Guardar en respaldo permanente 'configuracion_widgets' usando un cliente_id válido
   try {
-    const payload = {
-      cliente_id: "00000000-0000-0000-0000-000000000000",
-      color_primario: "NOTICIAS_STORE",
-      color_secundario: "#000000",
-      logo_medio_url: JSON.stringify(newsList),
-      mostrar_escudos: true,
-    };
+    let clienteId: string | null = null;
+    const { data: cData } = await supabase.from("clientes").select("id").limit(1).maybeSingle();
+    if (cData && cData.id) {
+      clienteId = cData.id;
+    }
 
-    const { data: existing } = await supabase
-      .from("configuracion_widgets")
-      .select("id")
-      .eq("color_primario", "NOTICIAS_STORE")
-      .maybeSingle();
+    if (!clienteId) {
+      // Si aún no hay clientes en la base de datos, creamos uno principal de respaldo
+      const { data: newC } = await supabase
+        .from("clientes")
+        .insert([{ nombre_medio: "Sistema DataeNe", email: "sistema@dataene.com", clave_periodista: "123456" }])
+        .select()
+        .single();
+      if (newC) clienteId = newC.id;
+    }
 
-    if (existing) {
-      await supabase.from("configuracion_widgets").update(payload).eq("id", existing.id);
-    } else {
-      await supabase.from("configuracion_widgets").insert([payload]);
+    if (clienteId) {
+      const payload = {
+        cliente_id: clienteId,
+        color_primario: "NOTICIAS_STORE",
+        color_secundario: "#000000",
+        logo_medio_url: JSON.stringify(newsList),
+        mostrar_escudos: true,
+      };
+
+      const { data: existing } = await supabase
+        .from("configuracion_widgets")
+        .select("id")
+        .eq("color_primario", "NOTICIAS_STORE")
+        .maybeSingle();
+
+      if (existing) {
+        const { error: errUpd } = await supabase.from("configuracion_widgets").update(payload).eq("id", existing.id);
+        if (errUpd) console.error("Error al actualizar noticias en Supabase:", errUpd.message);
+      } else {
+        const { error: errIns } = await supabase.from("configuracion_widgets").insert([payload]);
+        if (errIns) console.error("Error al insertar noticias en Supabase:", errIns.message);
+      }
     }
   } catch (e) {
     console.error("Error guardando noticias en Supabase:", e);
