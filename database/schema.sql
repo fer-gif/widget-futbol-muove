@@ -186,3 +186,18 @@ CREATE TRIGGER trigger_calcular_puntos_prode
 AFTER UPDATE ON partidos
 FOR EACH ROW
 EXECUTE FUNCTION calcular_puntos_prode();
+
+-- ============================================================================
+-- 11. Noticias del Carrusel
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS noticias (
+    id VARCHAR(255) PRIMARY KEY,
+    url TEXT NOT NULL,
+    title TEXT NOT NULL,
+    image TEXT,
+    description TEXT,
+    site_name VARCHAR(255),
+    active BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+

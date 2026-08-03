@@ -254,6 +254,7 @@ export default function SuperAdmin() {
   }
 
   async function handleToggleNews(id: string) {
+    setNewsList((prev) => prev.map((n) => (n.id === id ? { ...n, active: !n.active } : n)));
     try {
       const res = await fetch("/api/news", {
         method: "POST",
@@ -261,14 +262,16 @@ export default function SuperAdmin() {
         body: JSON.stringify({ action: "toggle", id }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        setNewsList(data.noticias || []);
+      if (res.ok && data.success && data.noticias) {
+        setNewsList(data.noticias);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Error al alternar noticia:", e);
+    }
   }
 
   async function handleDeleteNews(id: string) {
-    if (!confirm("¿Seguro que querés eliminar esta noticia del carrusel?")) return;
+    setNewsList((prev) => prev.filter((n) => n.id !== id));
     try {
       const res = await fetch("/api/news", {
         method: "POST",
@@ -276,10 +279,12 @@ export default function SuperAdmin() {
         body: JSON.stringify({ action: "delete", id }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        setNewsList(data.noticias || []);
+      if (res.ok && data.success && data.noticias) {
+        setNewsList(data.noticias);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Error al eliminar noticia:", e);
+    }
   }
 
   // --- ACCIONES CLIENTES ---
