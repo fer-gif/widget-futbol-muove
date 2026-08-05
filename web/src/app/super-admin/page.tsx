@@ -1919,14 +1919,152 @@ export default function SuperAdmin() {
                   <div className="flex items-center gap-3 border-b border-[#27272a] pb-4">
                     <span className="text-3xl">📦</span>
                     <div>
-                      <h2 className="text-lg font-bold text-white">Código de Integración para Desarrolladores (Vorks)</h2>
+                      <h2 className="text-lg font-bold text-white">Código de Integración para Desarrolladores & Periodistas (Vorks)</h2>
                       <p className="text-xs text-zinc-400">
-                        Copiá estos bloques de código para incrustar el Prode, Widget o APIs en la web principal de Data eNe.
+                        Copiá estos enlaces e iFrames para pegar los widgets dentro de las notas del diario o incrustar la app del Prode.
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-6">
+                  {/* SECCIÓN ESPECIAL: NOTAS PERIODÍSTICAS VORKS */}
+                  <div className="bg-[#09090b] border border-[#ff7900]/30 rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">📰</span>
+                      <h3 className="text-base font-bold text-white">
+                        Incrustar Widgets en Notas Periodísticas (Vorks / Editor de Noticias)
+                      </h3>
+                    </div>
+                    <p className="text-xs text-zinc-400">
+                      Copiá la <strong>URL directa</strong> o el <strong>código HTML iFrame</strong> para incrustar marcadores, posiciones o goleadores dentro del texto de una nota (igual que cuando pegás un Tweet o un video de YouTube).
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                      {/* CARD 1: PARTIDOS */}
+                      <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                              ⚽ Últimos Partidos / En Vivo
+                            </span>
+                            <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded font-bold">
+                              EN VIVO
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400">
+                            Widget con los marcadores en tiempo real y fixture de la fecha.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2 pt-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText("https://widget-futbol-muove.vercel.app/embed/partidos");
+                              setCopiedKey("url_partidos");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
+                          >
+                            {copiedKey === "url_partidos" ? "✓ ¡Enlace Copiado!" : "🔗 Copiar Enlace Directo (URL)"}
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText('<iframe src="https://widget-futbol-muove.vercel.app/embed/partidos" style="width:100%; height:460px; border:none; border-radius:12px;" allow="clipboard-write"></iframe>');
+                              setCopiedKey("iframe_partidos");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            className="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
+                          >
+                            {copiedKey === "iframe_partidos" ? "✓ ¡iFrame Copiado!" : "📋 Copiar iFrame HTML"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* CARD 2: POSICIONES */}
+                      <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                              📊 Tabla de Posiciones
+                            </span>
+                            <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded font-bold">
+                              ZONA A & B
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400">
+                            Tabla de posiciones interactiva con puntos, goles y diferencia.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2 pt-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText("https://widget-futbol-muove.vercel.app/embed/posiciones");
+                              setCopiedKey("url_posiciones");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
+                          >
+                            {copiedKey === "url_posiciones" ? "✓ ¡Enlace Copiado!" : "🔗 Copiar Enlace Directo (URL)"}
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText('<iframe src="https://widget-futbol-muove.vercel.app/embed/posiciones" style="width:100%; height:550px; border:none; border-radius:12px;" allow="clipboard-write"></iframe>');
+                              setCopiedKey("iframe_posiciones");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            className="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
+                          >
+                            {copiedKey === "iframe_posiciones" ? "✓ ¡iFrame Copiado!" : "📋 Copiar iFrame HTML"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* CARD 3: GOLEADORES */}
+                      <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                              👟 Tabla de Goleadores
+                            </span>
+                            <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-bold">
+                              GOLES
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400">
+                            Tabla de máximos artilleros del torneo local.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2 pt-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText("https://widget-futbol-muove.vercel.app/embed/goleadores");
+                              setCopiedKey("url_goleadores");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
+                          >
+                            {copiedKey === "url_goleadores" ? "✓ ¡Enlace Copiado!" : "🔗 Copiar Enlace Directo (URL)"}
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText('<iframe src="https://widget-futbol-muove.vercel.app/embed/goleadores" style="width:100%; height:500px; border:none; border-radius:12px;" allow="clipboard-write"></iframe>');
+                              setCopiedKey("iframe_goleadores");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            className="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
+                          >
+                            {copiedKey === "iframe_goleadores" ? "✓ ¡iFrame Copiado!" : "📋 Copiar iFrame HTML"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 pt-4">
                     {/* Opción 1: iFrame Prode */}
                     <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-5 space-y-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1938,16 +2076,28 @@ export default function SuperAdmin() {
                             Recomendado para Vorks. Crea una página propia en Data eNe (ej. /prode) y pega este código HTML.
                           </p>
                         </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`<iframe src="https://widget-futbol-muove.vercel.app/prode" style="width:100%; height:1100px; border:none;" allow="clipboard-write"></iframe>`);
-                            setCopiedKey("iframe");
-                            setTimeout(() => setCopiedKey(null), 2000);
-                          }}
-                          className="bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs px-4 py-2 rounded-lg transition-all"
-                        >
-                          {copiedKey === "iframe" ? "✓ ¡Copiado!" : "📋 Copiar iFrame"}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText("https://widget-futbol-muove.vercel.app/prode");
+                              setCopiedKey("url_prode");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            className="bg-[#18181b] hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold text-xs px-3 py-2 rounded-lg transition-all"
+                          >
+                            {copiedKey === "url_prode" ? "✓ ¡URL Copiada!" : "🔗 Copiar URL Prode"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText('<iframe src="https://widget-futbol-muove.vercel.app/prode" style="width:100%; height:1100px; border:none;" allow="clipboard-write"></iframe>');
+                              setCopiedKey("iframe");
+                              setTimeout(() => setCopiedKey(null), 2000);
+                            }}
+                            className="bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs px-4 py-2 rounded-lg transition-all"
+                          >
+                            {copiedKey === "iframe" ? "✓ ¡Copiado!" : "📋 Copiar iFrame Prode"}
+                          </button>
+                        </div>
                       </div>
 
                       <pre className="bg-[#18181b] text-emerald-400 p-4 rounded-lg text-xs overflow-x-auto border border-zinc-800 font-mono">
