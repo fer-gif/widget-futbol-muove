@@ -371,6 +371,24 @@ export default function JournalistCMS() {
     }
   }
 
+  async function handleDeletePartido(partidoId: string) {
+    if (!confirm("¿Estás seguro de que querés eliminar este partido del sistema?")) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("partidos")
+      .delete()
+      .eq("id", partidoId);
+
+    if (error) {
+      alert("Error al eliminar partido: " + error.message);
+    } else {
+      setPartidos(partidos.filter(p => p.id !== partidoId));
+      alert("¡Partido eliminado exitosamente!");
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#09090b] text-[#f4f4f5] font-sans flex flex-col justify-center items-center px-4 py-12">
@@ -906,19 +924,30 @@ export default function JournalistCMS() {
                               />
                             </div>
                           </div>
-                          {/* Fila de Selección de Diario Destino */}
-                          <div className="flex items-center gap-2 pt-2 border-t border-[#27272a]/30">
-                            <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap uppercase">Diario Destino:</span>
-                            <select
-                              value={partido.cliente_id || "todos"}
-                              onChange={e => handleUpdateClienteDestino(partido.id, e.target.value)}
-                              className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
+                          {/* Fila de Selección de Diario Destino y Acciones */}
+                          <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#27272a]/30 flex-wrap">
+                            <div className="flex items-center gap-2 flex-grow min-w-[200px]">
+                              <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap uppercase">Diario Destino:</span>
+                              <select
+                                value={partido.cliente_id || "todos"}
+                                onChange={e => handleUpdateClienteDestino(partido.id, e.target.value)}
+                                className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
+                              >
+                                <option value="todos">🌐 Todos los Diarios (Global - Publicar a todos)</option>
+                                {clientes.map(c => (
+                                  <option key={c.id} value={c.id}>📰 Solo en {c.nombre_medio}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePartido(partido.id)}
+                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs px-3 py-2 rounded-xl font-bold transition-all flex items-center gap-1 shrink-0"
+                              title="Eliminar este partido"
                             >
-                              <option value="todos">🌐 Todos los Diarios (Global - Publicar a todos)</option>
-                              {clientes.map(c => (
-                                <option key={c.id} value={c.id}>📰 Solo en {c.nombre_medio}</option>
-                              ))}
-                            </select>
+                              🗑️ Borrar Partido
+                            </button>
                           </div>
 
                           {partido.estado_partido === "finalizado" && (

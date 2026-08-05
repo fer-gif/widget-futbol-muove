@@ -780,6 +780,23 @@ export default function SuperAdmin() {
     }
   }
 
+  async function handleDeletePartido(partidoId: string) {
+    if (!confirm("¿Estás seguro de que querés borrar este partido del fixture?")) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("partidos")
+      .delete()
+      .eq("id", partidoId);
+
+    if (error) {
+      alert("Error al borrar el partido: " + error.message);
+    } else {
+      setPartidos(partidos.filter(p => p.id !== partidoId));
+    }
+  }
+
   async function handleSyncMatchFromAPI(apiPartidoId: number) {
     try {
       const res = await fetch(`/api/sync/match?api_partido_id=${apiPartidoId}`);
@@ -1876,12 +1893,20 @@ export default function SuperAdmin() {
                                   </div>
                                 </div>
                                 {!partido.api_partido_id && (
-                                  <button
-                                    onClick={() => handleMoveMatchToToday(partido.id)}
-                                    className="text-[9px] text-zinc-300 hover:text-white font-bold bg-[#09090b] hover:bg-zinc-800 px-2 py-1.5 rounded border border-[#27272a] transition-all flex items-center gap-1 shrink-0"
-                                  >
-                                    📅 Mover a Hoy
-                                  </button>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleMoveMatchToToday(partido.id)}
+                                      className="text-[9px] text-zinc-300 hover:text-white font-bold bg-[#09090b] hover:bg-zinc-800 px-2 py-1.5 rounded border border-[#27272a] transition-all flex items-center gap-1 shrink-0"
+                                    >
+                                      📅 Mover a Hoy
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeletePartido(partido.id)}
+                                      className="text-[9px] text-red-400 hover:text-red-300 font-bold bg-red-500/10 hover:bg-red-500/20 px-2 py-1.5 rounded border border-red-500/20 transition-all flex items-center gap-1 shrink-0"
+                                    >
+                                      🗑️ Borrar
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                               
