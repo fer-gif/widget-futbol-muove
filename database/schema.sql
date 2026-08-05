@@ -201,3 +201,83 @@ CREATE TABLE IF NOT EXISTS noticias (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- ============================================================================
+-- 12. HABILITACIÓN DE SEGURIDAD RLS (ROW LEVEL SECURITY)
+-- ============================================================================
+ALTER TABLE IF EXISTS noticias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS clientes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS ligas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS clientes_ligas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS equipos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS partidos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS configuracion_widgets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS prode_participantes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS prode_pronosticos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS prode_ligas_privadas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS prode_miembros_liga ENABLE ROW LEVEL SECURITY;
+
+-- Políticas de Seguridad para la API y la aplicación
+DO $$
+BEGIN
+    -- Noticias
+    DROP POLICY IF EXISTS "rls_noticias_select" ON noticias;
+    DROP POLICY IF EXISTS "rls_noticias_all" ON noticias;
+    CREATE POLICY "rls_noticias_select" ON noticias FOR SELECT USING (true);
+    CREATE POLICY "rls_noticias_all" ON noticias FOR ALL USING (true);
+
+    -- Clientes
+    DROP POLICY IF EXISTS "rls_clientes_select" ON clientes;
+    DROP POLICY IF EXISTS "rls_clientes_all" ON clientes;
+    CREATE POLICY "rls_clientes_select" ON clientes FOR SELECT USING (true);
+    CREATE POLICY "rls_clientes_all" ON clientes FOR ALL USING (true);
+
+    -- Ligas
+    DROP POLICY IF EXISTS "rls_ligas_select" ON ligas;
+    DROP POLICY IF EXISTS "rls_ligas_all" ON ligas;
+    CREATE POLICY "rls_ligas_select" ON ligas FOR SELECT USING (true);
+    CREATE POLICY "rls_ligas_all" ON ligas FOR ALL USING (true);
+
+    -- Equipos
+    DROP POLICY IF EXISTS "rls_equipos_select" ON equipos;
+    DROP POLICY IF EXISTS "rls_equipos_all" ON equipos;
+    CREATE POLICY "rls_equipos_select" ON equipos FOR SELECT USING (true);
+    CREATE POLICY "rls_equipos_all" ON equipos FOR ALL USING (true);
+
+    -- Partidos
+    DROP POLICY IF EXISTS "rls_partidos_select" ON partidos;
+    DROP POLICY IF EXISTS "rls_partidos_all" ON partidos;
+    CREATE POLICY "rls_partidos_select" ON partidos FOR SELECT USING (true);
+    CREATE POLICY "rls_partidos_all" ON partidos FOR ALL USING (true);
+
+    -- Configuración Widgets
+    DROP POLICY IF EXISTS "rls_cfg_select" ON configuracion_widgets;
+    DROP POLICY IF EXISTS "rls_cfg_all" ON configuracion_widgets;
+    CREATE POLICY "rls_cfg_select" ON configuracion_widgets FOR SELECT USING (true);
+    CREATE POLICY "rls_cfg_all" ON configuracion_widgets FOR ALL USING (true);
+
+    -- Participantes Prode
+    DROP POLICY IF EXISTS "rls_part_select" ON prode_participantes;
+    DROP POLICY IF EXISTS "rls_part_all" ON prode_participantes;
+    CREATE POLICY "rls_part_select" ON prode_participantes FOR SELECT USING (true);
+    CREATE POLICY "rls_part_all" ON prode_participantes FOR ALL USING (true);
+
+    -- Pronósticos Prode
+    DROP POLICY IF EXISTS "rls_pron_select" ON prode_pronosticos;
+    DROP POLICY IF EXISTS "rls_pron_all" ON prode_pronosticos;
+    CREATE POLICY "rls_pron_select" ON prode_pronosticos FOR SELECT USING (true);
+    CREATE POLICY "rls_pron_all" ON prode_pronosticos FOR ALL USING (true);
+
+    -- Ligas Privadas
+    DROP POLICY IF EXISTS "rls_ligas_priv_select" ON prode_ligas_privadas;
+    DROP POLICY IF EXISTS "rls_ligas_priv_all" ON prode_ligas_privadas;
+    CREATE POLICY "rls_ligas_priv_select" ON prode_ligas_privadas FOR SELECT USING (true);
+    CREATE POLICY "rls_ligas_priv_all" ON prode_ligas_privadas FOR ALL USING (true);
+
+    -- Miembros Liga
+    DROP POLICY IF EXISTS "rls_miemb_select" ON prode_miembros_liga;
+    DROP POLICY IF EXISTS "rls_miemb_all" ON prode_miembros_liga;
+    CREATE POLICY "rls_miemb_select" ON prode_miembros_liga FOR SELECT USING (true);
+    CREATE POLICY "rls_miemb_all" ON prode_miembros_liga FOR ALL USING (true);
+END $$;
+
+
