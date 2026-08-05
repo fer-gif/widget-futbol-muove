@@ -22,10 +22,12 @@ export default function EmbedPartidos() {
   useEffect(() => {
     async function loadPartidos() {
       try {
+        // Filtrar partidos para excluir los finalizados (.neq("estado_partido", "finalizado"))
         const { data: rawPartidos } = await supabase
           .from("partidos")
           .select("*, equipo_local:equipos!partidos_equipo_local_id_fkey(nombre_equipo, logo_url), equipo_visitante:equipos!partidos_equipo_visitante_id_fkey(nombre_equipo, logo_url)")
-          .order("fecha_hora", { ascending: false })
+          .neq("estado_partido", "finalizado")
+          .order("fecha_hora", { ascending: true })
           .limit(10);
 
         if (rawPartidos && rawPartidos.length > 0) {
@@ -43,10 +45,12 @@ export default function EmbedPartidos() {
             goles_visitante: p.goles_visitante || 0,
             estado_partido: p.estado_partido || "programado",
             minuto_actual: p.minuto_actual,
-            jornada: p.jornada || "Fecha 11",
+            jornada: p.jornada || "Próxima Fecha",
             fecha_hora: p.fecha_hora,
           }));
           setPartidos(formatted);
+        } else {
+          setPartidos([]);
         }
       } catch (err) {
         console.error("Error loading embed partidos:", err);
