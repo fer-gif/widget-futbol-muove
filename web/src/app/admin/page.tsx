@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import ProdeParticipantsManager from "@/components/ProdeParticipantsManager";
 
 type Liga = {
   id: string;
@@ -42,6 +43,7 @@ export default function JournalistCMS() {
   const [selectedLigaId, setSelectedLigaId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [updatingMatchId, setUpdatingMatchId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"partidos" | "prode_participantes">("partidos");
 
   // Estados de Filtros de Partidos para el Periodista
   const [filterEstado, setFilterEstado] = useState<"activos" | "en_vivo" | "programados" | "finalizados" | "todos">("activos");
@@ -476,6 +478,33 @@ export default function JournalistCMS() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 mt-8">
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-[#27272a] mb-8 gap-4">
+          <button
+            onClick={() => setActiveTab("partidos")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === "partidos"
+                ? "border-[#ff7900] text-[#ff7900]"
+                : "border-transparent text-zinc-400 hover:text-white"
+            }`}
+          >
+            ⚽ Transmisión & Fixture
+          </button>
+          <button
+            onClick={() => setActiveTab("prode_participantes")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === "prode_participantes"
+                ? "border-[#ff7900] text-[#ff7900]"
+                : "border-transparent text-zinc-400 hover:text-white"
+            }`}
+          >
+            🏆 Usuarios del Prode & Mensajes
+          </button>
+        </div>
+
+        {activeTab === "prode_participantes" ? (
+          <ProdeParticipantsManager defaultClientId={selectedClientId} clientesList={clientes} />
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* COLUMNA 1: PROGRAMAR ENCUENTRO */}
@@ -908,6 +937,7 @@ export default function JournalistCMS() {
           </div>
 
         </div>
+        )}
       </main>
     </div>
   );

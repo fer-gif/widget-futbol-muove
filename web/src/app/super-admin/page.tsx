@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import ProdeParticipantsManager from "@/components/ProdeParticipantsManager";
 
 declare global {
   namespace JSX {
@@ -59,7 +60,7 @@ type Partido = {
 };
 
 export default function SuperAdmin() {
-  const [activeTab, setActiveTab] = useState<"clientes" | "ligas" | "partidos" | "integracion" | "noticias">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "ligas" | "partidos" | "integracion" | "noticias" | "prode_participantes">("clientes");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // States para Noticias / Carrusel
@@ -863,6 +864,16 @@ export default function SuperAdmin() {
             }`}
           >
             📰 Noticias / Carrusel
+          </button>
+          <button
+            onClick={() => setActiveTab("prode_participantes")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === "prode_participantes"
+                ? "border-[#ff7900] text-[#ff7900]"
+                : "border-transparent text-zinc-400 hover:text-white"
+            }`}
+          >
+            🏆 Participantes Prode & Mensajes
           </button>
         </div>
 
@@ -2235,6 +2246,11 @@ export default function SuperAdmin() {
                   )}
                 </div>
               </div>
+            )}
+
+            {/* TAB PARTICIPANTES PRODE & REMISIÓN */}
+            {activeTab === "prode_participantes" && (
+              <ProdeParticipantsManager isSuperAdmin={true} clientesList={clientes} />
             )}
           </div>
         )}
