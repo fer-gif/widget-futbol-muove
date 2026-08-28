@@ -193,6 +193,7 @@
       }
 
       let diarioLogo = this.estilo.logo_medio_url;
+      let sponsorUrl = this.getAttribute("sponsor-url") || "";
       if (diarioLogo && diarioLogo.includes("___CFG___")) {
         const parts = diarioLogo.split("___CFG___");
         diarioLogo = parts[0] || null;
@@ -204,12 +205,12 @@
           fuenteFamilia = cfg[3] || fuenteFamilia;
           borderColor1 = cfg[4] || borderColor1;
           borderColor2 = cfg[5] || borderColor2;
+          sponsorUrl = cfg[6] || sponsorUrl;
         }
       }
       const nombreMedio = this.getAttribute("client-name") || "Diario DataNE";
       const clientId = this.getAttribute("client-id") || "";
       const prodeUrl = this.getAttribute("prode-url") || "https://dataene.com.ar/futbol-neco/";
-      const sponsorUrl = this.getAttribute("sponsor-url") || "";
 
       const styleTemplate = `
         <style>

@@ -117,6 +117,7 @@ export default function SuperAdmin() {
   const [configFuenteFamilia, setConfigFuenteFamilia] = useState("sans-serif");
   const [configLogoUrl, setConfigLogoUrl] = useState("");
   const [configLogoFile, setConfigLogoFile] = useState<File | null>(null);
+  const [configSponsorUrl, setConfigSponsorUrl] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
@@ -442,6 +443,7 @@ export default function SuperAdmin() {
         setConfigFuenteFamilia(cfg[3] || "sans-serif");
         setConfigColorBorde1(cfg[4] || "#7F35B2");
         setConfigColorBorde2(cfg[5] || "#EF426F");
+        setConfigSponsorUrl(cfg[6] || "");
       }
       setConfigLogoUrl(rawLogo);
     }
@@ -482,7 +484,7 @@ export default function SuperAdmin() {
         .maybeSingle();
 
       const baseLogo = logoUrl ? logoUrl.split("___CFG___")[0] : "";
-      const extraConfig = `___CFG___${configColorFondoTarjeta}|${configColorTextoPrincipal}|${configColorTextoSecundario}|${configFuenteFamilia}|${configColorBorde1}|${configColorBorde2}`;
+      const extraConfig = `___CFG___${configColorFondoTarjeta}|${configColorTextoPrincipal}|${configColorTextoSecundario}|${configFuenteFamilia}|${configColorBorde1}|${configColorBorde2}|${configSponsorUrl}`;
       const finalLogoPayload = baseLogo ? `${baseLogo}${extraConfig}` : extraConfig;
 
       const payload = {
@@ -1269,6 +1271,17 @@ export default function SuperAdmin() {
                                   </div>
                                 )}
                               </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-zinc-400 mb-2">🔗 Link del Sponsor (al tocar el logo)</label>
+                              <input
+                                type="url"
+                                placeholder="https://www.instagram.com/futbolshop_neco/"
+                                value={configSponsorUrl}
+                                onChange={e => setConfigSponsorUrl(e.target.value)}
+                                className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none placeholder:text-zinc-600"
+                              />
                             </div>
 
                             {/* Previsualización en Tiempo Real del Widget */}
