@@ -298,32 +298,27 @@
           
           .widget-wrapper {
             display: flex;
-            align-items: stretch;
+            flex-direction: column;
             background: #09090b;
-            min-height: 155px;
             position: relative;
           }
 
-
           .diario-panel {
-            width: 130px;
+            width: 100%;
             background: ${primaryColor};
-            border-right: 1px solid #27272a;
+            border-bottom: 1px solid #27272a;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 16px;
-            text-align: center;
-            flex-shrink: 0;
+            padding: 5px 12px;
             position: relative;
             z-index: 5;
           }
           .diario-panel img {
-            max-width: 100%;
-            max-height: 75px;
+            max-width: clamp(140px, 40%, 260px);
+            height: clamp(24px, 5vw, 36px);
             object-fit: contain;
-            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+            mix-blend-mode: multiply;
           }
 
           
@@ -448,23 +443,6 @@
 
           /* Reglas 100% Responsive para Pantallas Móviles y Celulares (< 640px) */
           @media (max-width: 640px) {
-            .widget-wrapper {
-              flex-direction: column !important;
-              min-height: auto !important;
-            }
-            .diario-panel {
-              width: 100% !important;
-              height: 42px !important;
-              min-height: 42px !important;
-              padding: 6px 16px !important;
-              border-right: none !important;
-              border-bottom: 1px solid #27272a !important;
-              flex-direction: row !important;
-              justify-content: center !important;
-            }
-            .diario-panel img {
-              max-height: 28px !important;
-            }
             .slider-container {
               padding: 12px 34px !important;
               gap: 10px !important;
