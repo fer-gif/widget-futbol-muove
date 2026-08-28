@@ -193,7 +193,7 @@
       }
 
       let diarioLogo = this.estilo.logo_medio_url;
-      let sponsorUrl = this.getAttribute("sponsor-url") || "";
+      let sponsorUrl = this.estilo.sponsor_url || this.getAttribute("sponsor-url") || "";
       if (diarioLogo && diarioLogo.includes("___CFG___")) {
         const parts = diarioLogo.split("___CFG___");
         diarioLogo = parts[0] || null;

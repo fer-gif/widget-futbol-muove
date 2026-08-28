@@ -243,6 +243,7 @@ export async function GET(request: NextRequest) {
     let fuenteFamilia = "sans-serif";
     let colorBorde1 = "#7F35B2";
     let colorBorde2 = "#EF426F";
+    let sponsorUrl = "";
     const rawLogoVal: string | null = (configGlobal as any)?.logo_medio_url || null;
     let logoClean: string | null = rawLogoVal;
 
@@ -257,6 +258,7 @@ export async function GET(request: NextRequest) {
         fuenteFamilia = cfg[3] || "sans-serif";
         colorBorde1 = cfg[4] || "#7F35B2";
         colorBorde2 = cfg[5] || "#EF426F";
+        sponsorUrl = cfg[6] || "";
       }
     }
 
@@ -278,6 +280,7 @@ export async function GET(request: NextRequest) {
           color_borde_2: colorBorde2,
           fuente_familia: fuenteFamilia,
           logo_medio_url: logoClean,
+          sponsor_url: sponsorUrl,
           mostrar_escudos: configGlobal.mostrar_escudos,
           mostrar_prode: mostrarProde
         },
