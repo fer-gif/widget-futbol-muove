@@ -209,6 +209,7 @@
       const nombreMedio = this.getAttribute("client-name") || "Diario DataNE";
       const clientId = this.getAttribute("client-id") || "";
       const prodeUrl = this.getAttribute("prode-url") || "https://dataene.com.ar/futbol-neco/";
+      const sponsorUrl = this.getAttribute("sponsor-url") || "";
 
       const styleTemplate = `
         <style>
@@ -310,13 +311,20 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 16px;
+            padding: 12px 16px;
             position: relative;
             z-index: 5;
           }
+          .diario-panel a.sponsor-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            cursor: pointer;
+          }
           .diario-panel img {
-            max-width: clamp(200px, 50%, 350px);
-            height: clamp(40px, 8vw, 60px);
+            max-width: clamp(200px, 55%, 400px);
+            height: clamp(50px, 10vw, 80px);
             object-fit: contain;
             mix-blend-mode: multiply;
           }
@@ -480,7 +488,7 @@
           ${styleTemplate}
           <div class="widget-inner-box">
             <div class="widget-wrapper">
-              <div class="diario-panel">${diarioLogo ? `<img src="${diarioLogo}" />` : `<div style="color:#fff; font-weight:800;">${nombreMedio}</div>`}</div>
+              <div class="diario-panel">${diarioLogo ? (sponsorUrl ? `<a href="${sponsorUrl}" target="_blank" rel="noopener noreferrer" class="sponsor-link"><img src="${diarioLogo}" /></a>` : `<img src="${diarioLogo}" />`) : `<div style="color:#fff; font-weight:800;">${nombreMedio}</div>`}</div>
               <div style="flex-grow:1; display:flex; align-items:center; justify-content:center; color:#a1a1aa; font-size:12px;">
                 ${this.loading ? "Cargando marcadores..." : this.error || "No hay partidos hoy."}
               </div>
@@ -556,7 +564,7 @@
         <div class="widget-inner-box">
           <div class="widget-wrapper">
             <div class="diario-panel">
-              ${diarioLogo ? `<img src="${diarioLogo}" />` : `<div style="color:#fff; font-weight:800; font-size:16px;">${nombreMedio}</div>`}
+              ${diarioLogo ? (sponsorUrl ? `<a href="${sponsorUrl}" target="_blank" rel="noopener noreferrer" class="sponsor-link"><img src="${diarioLogo}" /></a>` : `<img src="${diarioLogo}" />`) : `<div style="color:#fff; font-weight:800; font-size:16px;">${nombreMedio}</div>`}
             </div>
 
             <div class="slider-wrapper">
