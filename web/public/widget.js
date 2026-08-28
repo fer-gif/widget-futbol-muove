@@ -310,13 +310,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 5px 12px;
+            padding: 10px 16px;
             position: relative;
             z-index: 5;
           }
           .diario-panel img {
-            max-width: clamp(140px, 40%, 260px);
-            height: clamp(24px, 5vw, 36px);
+            max-width: clamp(200px, 50%, 350px);
+            height: clamp(40px, 8vw, 60px);
             object-fit: contain;
             mix-blend-mode: multiply;
           }
