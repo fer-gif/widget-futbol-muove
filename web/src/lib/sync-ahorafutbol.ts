@@ -3,8 +3,10 @@
 // siguen haciendo los diarios.
 //
 // Reglas:
+// - Partido ya jugado con resultado en el sitio: finalizado con ese resultado,
+//   aunque el sitio lo marque como postergado (pasa con los dados por ganado).
 // - Antes del partido: se actualizan fecha, hora, jornada y estado (postergado o
-//   suspendido → "suspendido").
+//   suspendido sin resultado → "suspendido").
 // - Durante el partido (inicio → +130 min): si el periodista lo está siguiendo
 //   (estado en_vivo o reloj iniciado) no se toca. Si no, se copia el marcador del
 //   sitio, sin bajar nunca la cantidad de goles ya cargada.
@@ -19,8 +21,11 @@ import {
   crearBuscadorEquipos,
   descargar,
   equiposDeLiga,
+  leerLiga,
+  normalizar,
   resolverLiga,
   textoPlano,
+  type EquipoLocal,
 } from "@/lib/ahorafutbol";
 
 export type PartidoSitio = {
@@ -53,6 +58,10 @@ export type ResumenSync = {
   omitidos: { partido: string; motivo: string }[];
   /** Partidos nuestros del período que el sitio no tiene (posibles duplicados o mal cargados). */
   sinPareja: string[];
+  /** Solo en modo completo: goleadores traídos del sitio. */
+  goleadores: { nuevos: number; actualizados: number; sinCambios: number; sinEquipo: number } | null;
+  /** Solo en modo completo: equipos sin zona a los que se les asignó la del sitio. */
+  zonas: number;
 };
 
 const DIA_MS = 864e5;
@@ -183,12 +192,12 @@ function camposDeseados(s: PartidoSitio, nuestro: PartidoLocal | undefined, ahor
   const enManos = nuestro && ahora < fin && ahora >= inicio - 30 * 60e3 && (nuestro.estado_partido === "en_vivo" || nuestro.periodo);
   if (enManos) return campos; // el periodista lo está siguiendo
 
-  if (s.estado === 1 || s.estado === 2) {
-    campos.estado_partido = "suspendido";
-  } else if (tieneMarcador && ahora >= fin) {
+  if (tieneMarcador && ahora >= fin) {
     campos.estado_partido = "finalizado";
     campos.goles_local = s.golesLocal!;
     campos.goles_visitante = s.golesVisitante!;
+  } else if (s.estado === 1 || s.estado === 2) {
+    campos.estado_partido = "suspendido";
   } else if (tieneMarcador && ahora >= inicio) {
     const total = s.golesLocal! + s.golesVisitante!;
     const nuestroTotal = nuestro ? nuestro.goles_local + nuestro.goles_visitante : 0;
@@ -249,6 +258,8 @@ export async function sincronizarPartidos(
     sinCambios: 0,
     omitidos: [],
     sinPareja: [],
+    goleadores: null,
+    zonas: 0,
   };
   const ahora = Date.now();
 
@@ -330,11 +341,64 @@ export async function sincronizarPartidos(
       .map((p) => `${nombre.get(p.equipo_local_id) ?? "?"} vs ${nombre.get(p.equipo_visitante_id) ?? "?"} (${p.fecha_hora.slice(0, 10)}, ${p.jornada ?? "sin jornada"})`);
   }
 
-  if (!simular) {
-    await supabase
-      .from("fuente_externa_cache")
-      .upsert({ clave: `sync:partidos:${liga.ligaExterna}`, datos: resumen, actualizado: new Date().toISOString() });
+  if (modo === "completo") {
+    const extra = await importarGoleadoresYZonas(liga.ligaId, liga.ligaExterna, equipos, simular);
+    resumen.goleadores = extra.goleadores;
+    resumen.zonas = extra.zonas;
   }
 
   return resumen;
+}
+
+// ---------------------------------------------------------------------------
+// Goleadores y zonas (modo completo)
+// ---------------------------------------------------------------------------
+
+async function importarGoleadoresYZonas(ligaId: string, ligaExterna: number, equipos: EquipoLocal[], simular: boolean) {
+  const datos = await leerLiga(ligaExterna);
+  const buscar = crearBuscadorEquipos(equipos);
+
+  // Zonas: solo a equipos que todavía no tienen (no se pisa lo cargado a mano).
+  let zonas = 0;
+  if (datos.zonas.length > 1) {
+    for (const z of datos.zonas) {
+      for (const f of z.filas) {
+        const eq = buscar(f.clubId, f.nombre);
+        if (!eq || eq.zona) continue;
+        zonas++;
+        if (!simular) await supabase.from("equipos").update({ zona: z.zona }).eq("id", eq.id);
+      }
+    }
+  }
+
+  // Goleadores: se suman los nuevos y se pone al día la cantidad de goles.
+  const { data: actuales, error } = await supabase.from("goleadores").select("id, nombre, equipo_id, goles").eq("liga_id", ligaId);
+  if (error && !simular) throw new Error("Falta correr la migración 006 en Supabase (tabla goleadores).");
+  const clave = (nombre: string, equipoId: string | null | undefined) => `${normalizar(nombre)}|${equipoId ?? ""}`;
+  const existentes = new Map((actuales || []).map((g) => [clave(g.nombre, g.equipo_id), g]));
+  const nombresSitio = new Map<number, string>();
+  for (const z of datos.zonas) for (const f of z.filas) nombresSitio.set(f.clubId, f.nombre);
+
+  const resumen = { nuevos: 0, actualizados: 0, sinCambios: 0, sinEquipo: 0 };
+  const nuevos: { liga_id: string; equipo_id: string | null; nombre: string; goles: number }[] = [];
+  const ahora = new Date().toISOString();
+  for (const g of datos.goleadores) {
+    const eq = buscar(g.clubId, g.clubId != null ? nombresSitio.get(g.clubId) : undefined);
+    if (!eq) resumen.sinEquipo++;
+    const ex = existentes.get(clave(g.nombre, eq?.id));
+    if (!ex) {
+      resumen.nuevos++;
+      nuevos.push({ liga_id: ligaId, equipo_id: eq?.id ?? null, nombre: g.nombre, goles: g.goles });
+    } else if (ex.goles !== g.goles) {
+      resumen.actualizados++;
+      if (!simular) await supabase.from("goleadores").update({ goles: g.goles, actualizado: ahora }).eq("id", ex.id);
+    } else {
+      resumen.sinCambios++;
+    }
+  }
+  if (!simular && nuevos.length) {
+    const { error: errIns } = await supabase.from("goleadores").insert(nuevos);
+    if (errIns) throw new Error(`No se pudieron guardar los goleadores: ${errIns.message}`);
+  }
+  return { goleadores: resumen, zonas };
 }

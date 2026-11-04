@@ -34,6 +34,7 @@ const SUPERADMIN_TABLES = new Set([
   "configuracion_widgets",
   "noticias",
   "tablas_posiciones",
+  "goleadores",
 ]);
 
 // Columnas de partidos que un periodista puede escribir.
@@ -51,6 +52,9 @@ const PERIODISTA_PARTIDO_COLS = new Set([
   "fecha_hora",
   "cliente_id",
 ]);
+
+// Columnas de goleadores que un periodista puede escribir.
+const PERIODISTA_GOLEADOR_COLS = new Set(["liga_id", "equipo_id", "nombre", "goles", "actualizado"]);
 
 const FILTER_METHODS = new Set<FilterMethod>(["eq", "neq", "is", "in", "gt", "gte", "lt", "lte"]);
 const IDENT = /^[a-z_][a-z0-9_]*$/;
@@ -80,7 +84,7 @@ async function authorizePeriodista(spec: QuerySpec, session: Session): Promise<Q
   const clienteId = session.clienteId!;
 
   if (spec.op === "select") {
-    if (spec.table === "ligas" || spec.table === "equipos" || spec.table === "partidos") {
+    if (spec.table === "ligas" || spec.table === "equipos" || spec.table === "partidos" || spec.table === "goleadores") {
       // Solo las ligas asignadas a su medio (si tiene asignaciones).
       const ligas = await periodistaLigas(clienteId);
       if (!ligas) return spec;
@@ -98,12 +102,37 @@ async function authorizePeriodista(spec: QuerySpec, session: Session): Promise<Q
     throw new Forbidden(`Sin acceso de lectura a ${spec.table}`);
   }
 
-  if (spec.table !== "partidos" || spec.op === "upsert") {
+  if ((spec.table !== "partidos" && spec.table !== "goleadores") || spec.op === "upsert") {
     throw new Forbidden(`Sin acceso de escritura a ${spec.table}`);
   }
 
   const ligas = await periodistaLigas(clienteId);
   const ligaOk = (id: unknown) => !ligas || ligas.has(String(id));
+
+  if (spec.table === "goleadores") {
+    // Goleadores de la liga: los edita cualquier medio suscripto a ella.
+    const checkGoleador = (row: Row) => {
+      for (const k of Object.keys(row)) {
+        if (!PERIODISTA_GOLEADOR_COLS.has(k)) throw new Forbidden(`No podés modificar el campo ${k}`);
+      }
+      if ("liga_id" in row && !ligaOk(row.liga_id)) throw new Forbidden("Liga no habilitada para tu medio");
+    };
+    if (spec.op === "insert") {
+      for (const row of asRows(spec.values)) {
+        if (!row.liga_id) throw new BadRequest("liga_id es obligatorio");
+        checkGoleador(row);
+      }
+      return spec;
+    }
+    const gid = idFilter(spec);
+    if (!gid) throw new BadRequest("Se requiere filtrar por id");
+    const { data: goleador } = await supabase.from("goleadores").select("liga_id").eq("id", gid).maybeSingle();
+    if (!goleador) throw new BadRequest("Goleador no encontrado");
+    if (!ligaOk(goleador.liga_id)) throw new Forbidden("Este goleador no es de una liga de tu medio");
+    if (spec.op === "update") asRows(spec.values).forEach(checkGoleador);
+    return { ...spec, filters: [["eq", "id", gid]] };
+  }
+
   const destinoOk = (id: unknown) => id === null || id === undefined || id === clienteId;
 
   const checkValues = (row: Row) => {

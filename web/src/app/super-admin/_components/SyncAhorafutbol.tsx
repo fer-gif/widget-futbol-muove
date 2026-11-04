@@ -16,6 +16,8 @@ type Resumen = {
   sinCambios: number;
   omitidos: { partido: string; motivo: string }[];
   sinPareja: string[];
+  goleadores: { nuevos: number; actualizados: number; sinCambios: number; sinEquipo: number } | null;
+  zonas: number;
 };
 
 type Accion = { modo: "reciente" | "completo"; simular: boolean };
@@ -28,8 +30,8 @@ export default function SyncAhorafutbol({ onSynced }: { onSynced: () => void }) 
   async function correr({ modo, simular }: Accion) {
     if (!simular && modo === "completo") {
       const ok = window.confirm(
-        "Se van a crear y actualizar los partidos de todo el año con los datos de ahorafutbol.ar.\n\n" +
-          "Los resultados del sitio reemplazan a los cargados a mano en los partidos ya terminados. ¿Seguir?"
+        "Se van a crear y actualizar los partidos de todo el año y la tabla de goleadores con los datos de ahorafutbol.ar.\n\n" +
+          "En los partidos terminados y en los goles de cada jugador, lo del sitio reemplaza lo cargado a mano. ¿Seguir?"
       );
       if (!ok) return;
     }
@@ -90,7 +92,7 @@ export default function SyncAhorafutbol({ onSynced }: { onSynced: () => void }) 
         className="w-full flex items-center justify-between p-5 text-left"
       >
         <span>
-          <span className="text-base font-bold text-white">🔄 Fixture y resultados desde ahorafutbol.ar</span>
+          <span className="text-base font-bold text-white">🔄 Ponerse al día desde ahorafutbol.ar</span>
           <span className="block text-xs text-zinc-400 mt-0.5">
             Carga puntual para ponerse al día. La carga habitual la siguen haciendo los diarios.
           </span>
@@ -101,9 +103,10 @@ export default function SyncAhorafutbol({ onSynced }: { onSynced: () => void }) 
       {abierto && (
         <div className="px-5 pb-5 space-y-4">
           <ul className="text-xs text-zinc-400 space-y-1 list-disc pl-5">
-            <li>Durante un partido manda lo que carga el periodista. Si nadie lo sigue, se muestra el marcador del sitio.</li>
-            <li>Al terminar, el resultado del sitio cierra el partido como finalizado.</li>
+            <li>Trae partidos y resultados. &quot;Año completo&quot; también trae la tabla de goleadores y las zonas que falten.</li>
+            <li>Los partidos ya jugados quedan finalizados con el resultado del sitio. Los que están en juego no se tocan.</li>
             <li>Los partidos cargados a mano se vinculan con los del sitio en vez de duplicarse.</li>
+            <li>Las posiciones se calculan solas con los resultados: no hace falta cargarlas.</li>
           </ul>
 
           <div className="flex flex-wrap gap-2">
@@ -132,6 +135,16 @@ export default function SyncAhorafutbol({ onSynced }: { onSynced: () => void }) 
                   </div>
                 ))}
               </dl>
+
+              {resumen.goleadores && (
+                <p className="text-zinc-300">
+                  👟 Goleadores: {resumen.goleadores.nuevos} {resumen.simulado ? "se agregarían" : "agregados"},{" "}
+                  {resumen.goleadores.actualizados} {resumen.simulado ? "se actualizarían" : "actualizados"},{" "}
+                  {resumen.goleadores.sinCambios} sin cambios
+                  {resumen.goleadores.sinEquipo > 0 && ` (${resumen.goleadores.sinEquipo} sin equipo reconocido)`}.
+                  {resumen.zonas > 0 && ` Zonas asignadas a ${resumen.zonas} equipos.`}
+                </p>
+              )}
 
               {resumen.omitidos.length > 0 && (
                 <details open>

@@ -10,6 +10,7 @@ import IntegracionPanel from "./_components/IntegracionPanel";
 import NoticiasPanel from "./_components/NoticiasPanel";
 import FixtureImport from "./_components/FixtureImport";
 import SyncAhorafutbol from "./_components/SyncAhorafutbol";
+import GoleadoresEditor from "@/components/GoleadoresEditor";
 import MetricasPanel from "@/components/MetricasPanel";
 
 declare global {
@@ -68,7 +69,7 @@ type Partido = {
 };
 
 export default function SuperAdmin() {
-  const [activeTab, setActiveTab] = useState<"clientes" | "ligas" | "partidos" | "integracion" | "noticias" | "prode_participantes" | "metricas">("clientes");
+  const [activeTab, setActiveTab] = useState<"clientes" | "ligas" | "partidos" | "goleadores" | "integracion" | "noticias" | "prode_participantes" | "metricas">("clientes");
 
   // States para datos
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -737,6 +738,16 @@ export default function SuperAdmin() {
             }`}
           >
             📦 Código para insertar
+          </button>
+          <button
+            onClick={() => setActiveTab("goleadores")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === "goleadores"
+                ? "border-[#ff7900] text-[#ff7900]"
+                : "border-transparent text-zinc-400 hover:text-white"
+            }`}
+          >
+            👟 Goleadores
           </button>
           <button
             onClick={() => setActiveTab("metricas")}
@@ -1899,6 +1910,7 @@ export default function SuperAdmin() {
             {activeTab === "noticias" && <NoticiasPanel />}
 
             {activeTab === "metricas" && <MetricasPanel clientes={clientes} />}
+            {activeTab === "goleadores" && <GoleadoresEditor ligas={ligas} equipos={equipos} />}
 
             {activeTab === "prode_participantes" && (
               <ProdeParticipantsManager isSuperAdmin={true} clientesList={clientes} />

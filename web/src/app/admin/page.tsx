@@ -7,6 +7,7 @@ import { db, logout } from "@/lib/db-client";
 import { matchClock } from "@/lib/match-clock";
 import ProdeParticipantsManager from "@/components/ProdeParticipantsManager";
 import MetricasPanel from "@/components/MetricasPanel";
+import GoleadoresEditor from "@/components/GoleadoresEditor";
 
 type Liga = {
   id: string;
@@ -18,6 +19,7 @@ type Equipo = {
   id: string;
   nombre_equipo: string;
   logo_url: string;
+  liga_id?: string;
 };
 
 type Partido = {
@@ -54,7 +56,7 @@ export default function JournalistCMS() {
     const id = setInterval(() => setNowTick(Date.now()), 15000);
     return () => clearInterval(id);
   }, []);
-  const [activeTab, setActiveTab] = useState<"partidos" | "prode_participantes" | "metricas">("partidos");
+  const [activeTab, setActiveTab] = useState<"partidos" | "goleadores" | "prode_participantes" | "metricas">("partidos");
 
   // Estados de Filtros de Partidos para el Periodista
   const [filterEstado, setFilterEstado] = useState<"activos" | "en_vivo" | "programados" | "finalizados" | "todos">("activos");
@@ -417,6 +419,16 @@ export default function JournalistCMS() {
             ⚽ Transmisión & Fixture
           </button>
           <button
+            onClick={() => setActiveTab("goleadores")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === "goleadores"
+                ? "border-[#ff7900] text-[#ff7900]"
+                : "border-transparent text-zinc-400 hover:text-white"
+            }`}
+          >
+            👟 Goleadores
+          </button>
+          <button
             onClick={() => setActiveTab("prode_participantes")}
             className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
               activeTab === "prode_participantes"
@@ -438,7 +450,9 @@ export default function JournalistCMS() {
           </button>
         </div>
 
-        {activeTab === "metricas" ? (
+        {activeTab === "goleadores" ? (
+          <GoleadoresEditor ligas={ligas} equipos={equipos} />
+        ) : activeTab === "metricas" ? (
           selectedClientId ? (
             <MetricasPanel clientes={clientes} fixedClienteId={selectedClientId} />
           ) : null

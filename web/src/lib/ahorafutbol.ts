@@ -1,16 +1,12 @@
-// Lector de ahorafutbol.ar: posiciones y goleadores del torneo actual de una liga.
-//
-// El sitio no tiene una API pública: se lee el HTML de ligas.php. Para no
-// depender de él en cada visita se guarda una copia en memoria (5 min) y otra en
-// la base (tabla fuente_externa_cache, migración 006) que se usa si el sitio no
-// responde. Solo servidor.
+// Lector de ahorafutbol.ar para la carga puntual desde el super-admin
+// (posiciones, goleadores y partidos). El sitio no tiene API pública: se lee el
+// HTML de ligas.php y la respuesta de db/partido.php. Solo servidor.
 import { supabase } from "@/lib/supabase-server";
 
 export const AHORAFUTBOL_URL = "https://www.ahorafutbol.ar";
 /** Liga Necochea 1ra. División Masculino (ligas.php?i=1). */
 export const AHORAFUTBOL_LIGA_DEFAULT = 1;
 
-const TTL_MS = 5 * 60 * 1000;
 const TIMEOUT_MS = 8000;
 const USER_AGENT = "Mozilla/5.0 (compatible; MuoveWidget/1.0; +https://widget-futbol-muove.vercel.app)";
 
@@ -164,11 +160,8 @@ export function parsearLiga(html: string, ligaExterna: number): Omit<LigaSnapsho
 }
 
 // ---------------------------------------------------------------------------
-// Lectura con caché
+// Lectura
 // ---------------------------------------------------------------------------
-
-const memoria = new Map<number, { at: number; data: LigaSnapshot }>();
-const enCurso = new Map<number, Promise<LigaSnapshot>>();
 
 export async function descargar(url: string, init?: RequestInit): Promise<string> {
   const res = await fetch(url, {
@@ -181,7 +174,8 @@ export async function descargar(url: string, init?: RequestInit): Promise<string
   return decodificarMixto(new Uint8Array(await res.arrayBuffer()));
 }
 
-async function leerDelSitio(ligaExterna: number): Promise<LigaSnapshot> {
+/** Posiciones y goleadores del torneo actual, leídos en el momento. */
+export async function leerLiga(ligaExterna = AHORAFUTBOL_LIGA_DEFAULT): Promise<LigaSnapshot> {
   const html = await descargar(`${AHORAFUTBOL_URL}/ligas.php?i=${ligaExterna}&t=0`);
   const datos = parsearLiga(html, ligaExterna);
   if (datos.zonas.length === 0 && datos.goleadores.length === 0) {
@@ -190,71 +184,19 @@ async function leerDelSitio(ligaExterna: number): Promise<LigaSnapshot> {
   return { ...datos, leido: new Date().toISOString() };
 }
 
-const claveCache = (liga: number) => `ahorafutbol:liga:${liga}`;
-
-async function guardarCopia(data: LigaSnapshot) {
-  const { error } = await supabase
-    .from("fuente_externa_cache")
-    .upsert({ clave: claveCache(data.ligaExterna), datos: data, actualizado: data.leido });
-  if (error) console.warn("[ahorafutbol] no se pudo guardar la copia:", error.message);
-}
-
-async function leerCopia(liga: number): Promise<LigaSnapshot | null> {
-  const { data, error } = await supabase
-    .from("fuente_externa_cache")
-    .select("datos")
-    .eq("clave", claveCache(liga))
-    .maybeSingle();
-  if (error) return null;
-  return (data?.datos as LigaSnapshot) ?? null;
-}
-
-/**
- * Posiciones y goleadores del torneo actual. Orden de preferencia: memoria
- * reciente → sitio → memoria vieja → copia en la base. Lanza error solo si no
- * hay ninguna.
- */
-export async function obtenerLiga(ligaExterna = AHORAFUTBOL_LIGA_DEFAULT): Promise<LigaSnapshot> {
-  const cache = memoria.get(ligaExterna);
-  if (cache && Date.now() - cache.at < TTL_MS) return cache.data;
-
-  let pendiente = enCurso.get(ligaExterna);
-  if (!pendiente) {
-    pendiente = (async () => {
-      try {
-        const data = await leerDelSitio(ligaExterna);
-        memoria.set(ligaExterna, { at: Date.now(), data });
-        await guardarCopia(data);
-        return data;
-      } catch (err) {
-        console.error("[ahorafutbol]", err instanceof Error ? err.message : err);
-        if (cache) {
-          // Reintentar recién en 1 minuto para no insistir contra un sitio caído.
-          memoria.set(ligaExterna, { at: Date.now() - TTL_MS + 60_000, data: cache.data });
-          return cache.data;
-        }
-        const copia = await leerCopia(ligaExterna);
-        if (copia) {
-          memoria.set(ligaExterna, { at: Date.now() - TTL_MS + 60_000, data: copia });
-          return copia;
-        }
-        throw err;
-      } finally {
-        enCurso.delete(ligaExterna);
-      }
-    })();
-    enCurso.set(ligaExterna, pendiente);
-  }
-  return pendiente;
-}
-
 // ---------------------------------------------------------------------------
 // Equivalencias con nuestras tablas
 // ---------------------------------------------------------------------------
 
-export type EquipoLocal = { id: string; nombre_equipo: string; logo_url: string | null; ahorafutbol_id?: number | null };
+export type EquipoLocal = {
+  id: string;
+  nombre_equipo: string;
+  logo_url: string | null;
+  ahorafutbol_id?: number | null;
+  zona?: string | null;
+};
 
-function normalizar(txt: string): string {
+export function normalizar(txt: string): string {
   return txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 }
 
@@ -283,14 +225,20 @@ export function crearBuscadorEquipos(equipos: EquipoLocal[]) {
  * Liga del sitio para una liga nuestra: columna `ligas.ahorafutbol_id`
  * (migración 006); sin ella, la liga por defecto.
  */
-export async function resolverLiga(ligaId?: string | null): Promise<{ ligaExterna: number; ligaId: string | null; nombre: string | null }> {
-  const { data } = await supabase.from("ligas").select("*");
-  const ligas = (data || []) as { id: string; nombre_liga: string; ahorafutbol_id?: number | null }[];
-  const elegida = ligaId ? ligas.find((l) => l.id === ligaId) : ligas.find((l) => l.ahorafutbol_id) ?? (ligas.length === 1 ? ligas[0] : undefined);
+export async function resolverLiga(ligaId?: string | null): Promise<{
+  ligaExterna: number;
+  ligaId: string | null;
+  nombre: string | null;
+  torneoInicio: string | null;
+}> {
+  const { data } = await supabase.from("ligas").select("*").order("created_at", { ascending: true });
+  const ligas = (data || []) as { id: string; nombre_liga: string; ahorafutbol_id?: number | null; torneo_inicio?: string | null }[];
+  const elegida = ligaId ? ligas.find((l) => l.id === ligaId) : ligas.find((l) => l.ahorafutbol_id) ?? ligas[0];
   return {
     ligaExterna: Number(elegida?.ahorafutbol_id) || AHORAFUTBOL_LIGA_DEFAULT,
     ligaId: elegida?.id ?? null,
     nombre: elegida?.nombre_liga ?? null,
+    torneoInicio: elegida?.torneo_inicio ?? null,
   };
 }
 
