@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { sincronizarPartidos } from "@/lib/sync-ahorafutbol";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;

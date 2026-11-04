@@ -1,4 +1,6 @@
-// Sincronización de fixture y resultados desde ahorafutbol.ar hacia `partidos`.
+// Carga puntual de fixture y resultados desde ahorafutbol.ar hacia `partidos`.
+// Se usa a mano desde el super-admin para ponerse al día; la carga habitual la
+// siguen haciendo los diarios.
 //
 // Reglas:
 // - Antes del partido: se actualizan fecha, hora, jornada y estado (postergado o
@@ -335,38 +337,4 @@ export async function sincronizarPartidos(
   }
 
   return resumen;
-}
-
-// ---------------------------------------------------------------------------
-// Disparo automático (desde /api/widget, después de responder)
-// ---------------------------------------------------------------------------
-
-const INTERVALO_MS = 10 * 60 * 1000;
-let ultimoIntento = 0;
-
-/**
- * Corre la sincronización "reciente" si pasaron 10 minutos desde la última,
- * contando todas las instancias del servidor (marca en fuente_externa_cache).
- */
-export async function sincronizarSiCorresponde(): Promise<void> {
-  if (Date.now() - ultimoIntento < INTERVALO_MS) return;
-  ultimoIntento = Date.now();
-
-  const clave = "sync:partidos:marca";
-  const { data, error } = await supabase.from("fuente_externa_cache").select("actualizado").eq("clave", clave).maybeSingle();
-  if (error) return; // sin migración 006
-  if (data && Date.now() - Date.parse(data.actualizado) < INTERVALO_MS) return;
-  await supabase.from("fuente_externa_cache").upsert({ clave, datos: {}, actualizado: new Date().toISOString() });
-
-  const { data: ligas } = await supabase.from("ligas").select("id").not("ahorafutbol_id", "is", null);
-  for (const l of ligas || []) {
-    try {
-      const r = await sincronizarPartidos({ ligaId: l.id, modo: "reciente" });
-      if (r.creados || r.actualizados || r.vinculados || r.omitidos.length) {
-        console.log("[sync ahorafutbol]", JSON.stringify({ ...r, omitidos: r.omitidos.slice(0, 5) }));
-      }
-    } catch (err) {
-      console.error("[sync ahorafutbol]", l.id, err instanceof Error ? err.message : err);
-    }
-  }
 }

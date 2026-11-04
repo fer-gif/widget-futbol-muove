@@ -92,7 +92,7 @@ export default function SyncAhorafutbol({ onSynced }: { onSynced: () => void }) 
         <span>
           <span className="text-base font-bold text-white">🔄 Fixture y resultados desde ahorafutbol.ar</span>
           <span className="block text-xs text-zinc-400 mt-0.5">
-            Se actualiza solo cada 10 minutos (últimos y próximos 21 días). Acá podés forzarlo o traer el año completo.
+            Carga puntual para ponerse al día. La carga habitual la siguen haciendo los diarios.
           </span>
         </span>
         <span className="text-zinc-400 text-sm">{abierto ? "▲" : "▼"}</span>
@@ -107,7 +107,7 @@ export default function SyncAhorafutbol({ onSynced }: { onSynced: () => void }) 
           </ul>
 
           <div className="flex flex-wrap gap-2">
-            {boton({ modo: "reciente", simular: false }, "Sincronizar ahora", true)}
+            {boton({ modo: "reciente", simular: false }, "Traer últimas 3 semanas", true)}
             {boton({ modo: "completo", simular: true }, "Simular año completo")}
             {boton({ modo: "completo", simular: false }, "Traer año completo")}
           </div>
