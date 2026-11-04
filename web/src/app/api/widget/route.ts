@@ -1,194 +1,163 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-server";
+import { parseWidgetConfig } from "@/lib/widget-config";
+import { matchClock } from "@/lib/match-clock";
 
 export const dynamic = "force-dynamic";
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+// El widget consulta cada 30s desde cada visitante: el CDN de Vercel responde
+// la mayoría de esas consultas sin tocar la base de datos.
+const CACHE_OK = "public, s-maxage=15, stale-while-revalidate=45";
+const CACHE_ERR = "public, s-maxage=60";
+
+// Ventana de partidos que muestra el widget.
+const DIAS_ATRAS = 10;
+const DIAS_ADELANTE = 30;
+const LIMITE_FALLBACK = 20;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type Cliente = { id: string; estado: string; nombre_medio: string };
+
+function respond(body: object, status: number) {
+  return NextResponse.json(body, {
+    status,
+    headers: { ...CORS, "Cache-Control": status === 200 ? CACHE_OK : CACHE_ERR },
+  });
+}
+
+async function resolveCliente(clientIdParam: string | null): Promise<Cliente | null> {
+  const cols = "id, estado, nombre_medio";
+
+  if (clientIdParam && UUID.test(clientIdParam)) {
+    const { data } = await supabase.from("clientes").select(cols).eq("id", clientIdParam).maybeSingle();
+    return data;
+  }
+
+  if (clientIdParam) {
+    // Compatibilidad: algunos embeds usan el nombre del medio en lugar del UUID.
+    const { data } = await supabase.from("clientes").select(cols).ilike("nombre_medio", clientIdParam).limit(1);
+    return data?.[0] || null;
+  }
+
+  // Sin client-id: cliente por defecto configurable por variable de entorno.
+  const defaultId = process.env.DEFAULT_WIDGET_CLIENT_ID;
+  if (defaultId && UUID.test(defaultId)) {
+    const { data } = await supabase.from("clientes").select(cols).eq("id", defaultId).maybeSingle();
+    if (data) return data;
+  }
+
+  // Compatibilidad heredada: embeds viejos de DataNE sin client-id.
+  // Se puede borrar cuando DEFAULT_WIDGET_CLIENT_ID esté configurado.
+  const { data } = await supabase
+    .from("clientes")
+    .select(cols)
+    .or("nombre_medio.ilike.%datane%,nombre_medio.ilike.%dataene%")
+    .limit(1);
+  return data?.[0] || null;
+}
+
 export async function GET(request: NextRequest) {
-  // Configurar cabeceras CORS para permitir consultas desde cualquier diario digital
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-
   try {
-    const { searchParams } = new URL(request.url);
-    let clientId = searchParams.get("client-id");
-    const leaguesParam = searchParams.get("leagues");
-
-    // Fallback automático para DataNE si no se especifica client-id
-    if (!clientId) {
-      const { data: clienteDataNE } = await supabase
-        .from("clientes")
-        .select("id")
-        .ilike("nombre_medio", "%datane%")
-        .limit(1);
-
-      if (clienteDataNE && clienteDataNE.length > 0) {
-        clientId = clienteDataNE[0].id;
-      } else {
-        const { data: anyCliente } = await supabase
-          .from("clientes")
-          .select("id")
-          .limit(1);
-        if (anyCliente && anyCliente.length > 0) {
-          clientId = anyCliente[0].id;
-        }
-      }
-    }
-
-    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-
-    // 1. Validar estado del cliente
-    let cliente: any = null;
-    if (clientId && isUuid(clientId)) {
-      const { data: cData } = await supabase
-        .from("clientes")
-        .select("id, estado, nombre_medio")
-        .eq("id", clientId)
-        .single();
-      cliente = cData;
-    } else if (clientId) {
-      const { data: cData } = await supabase
-        .from("clientes")
-        .select("id, estado, nombre_medio")
-        .ilike("nombre_medio", `%${clientId}%`)
-        .limit(1);
-      if (cData && cData.length > 0) cliente = cData[0];
-    }
+    const params = request.nextUrl.searchParams;
+    const cliente = await resolveCliente(params.get("client-id"));
 
     if (!cliente) {
-      cliente = { id: null, estado: "activo", nombre_medio: "Diario DataNE" };
+      return respond({ success: false, status: "not_found", message: "Cliente no encontrado. Revisá el client-id." }, 404);
     }
-
     if (cliente.estado !== "activo") {
-      return NextResponse.json(
-        { 
-          success: false, 
-          status: "inactive", 
-          message: "Suscripción suspendida o inactiva. Contacte a soporte de Muove Widgets." 
-        },
-        { status: 403, headers }
-      );
+      return respond({ success: false, status: "inactive", message: "Suscripción suspendida o inactiva." }, 403);
     }
 
-    const realClientId = cliente?.id || (clientId && isUuid(clientId) ? clientId : null);
-
-    // 2. Obtener configuración de estilo
-    let configGlobal = {
-      color_primario: "#121214",
-      color_secundario: "#00E676",
-      logo_medio_url: null,
-      mostrar_escudos: true
-    };
-
-    if (realClientId) {
-      const { data: configs } = await supabase
+    // 1. Configuración visual + ligas autorizadas
+    const [{ data: configs }, { data: asignaciones }] = await Promise.all([
+      supabase
         .from("configuracion_widgets")
         .select("*")
-        .eq("cliente_id", realClientId);
+        .eq("cliente_id", cliente.id)
+        .neq("color_primario", "NOTICIAS_STORE"),
+      supabase.from("clientes_ligas").select("liga_id").eq("cliente_id", cliente.id),
+    ]);
 
-      if (configs && configs.length > 0) {
-        const found = configs.find(c => c.liga_id === null) || configs[0];
-        configGlobal = { ...configGlobal, ...found };
-      }
+    const configRow = (configs || []).find((c) => c.liga_id === null) || configs?.[0] || null;
+    const estilo = parseWidgetConfig(configRow);
+
+    let ligaIds: string[] | null = (asignaciones || []).map((a) => a.liga_id as string);
+    if (ligaIds.length === 0) ligaIds = null; // sin asignaciones = todas las ligas
+
+    const now = Date.now();
+    const leaguesParam = params.get("leagues");
+    if (leaguesParam) {
+      const pedidas = leaguesParam.split(",").map((s) => s.trim()).filter((s) => UUID.test(s));
+      ligaIds = ligaIds ? ligaIds.filter((id) => pedidas.includes(id)) : pedidas;
+    }
+    if (ligaIds && ligaIds.length === 0) {
+      return respond({ success: true, cliente_id: cliente.id, nombre_medio: cliente.nombre_medio, estilo, partidos: [], server_time: now }, 200);
     }
 
-    // 3. Obtener ligas autorizadas
-    let ligasAutorizadas: string[] = [];
+    // 2. Partidos dentro de la ventana de fechas (o en vivo)
+    const desde = new Date(now - DIAS_ATRAS * 864e5).toISOString();
+    const hasta = new Date(now + DIAS_ADELANTE * 864e5).toISOString();
 
-    if (realClientId) {
-      const { data: asignaciones } = await supabase
-        .from("clientes_ligas")
-        .select("liga_id")
-        .eq("cliente_id", realClientId);
+    // "*" para no depender de columnas opcionales (periodo, periodo_inicio) antes de la migración 004.
+    const cols = "*";
 
-      if (asignaciones && asignaciones.length > 0) {
-        ligasAutorizadas = asignaciones.map(a => a.liga_id);
-      }
+    // range=all (lo usa el Prode) trae el fixture completo, sin ventana de fechas.
+    const fixtureCompleto = params.get("range") === "all";
+
+    let q = supabase.from("partidos").select(cols);
+    if (!fixtureCompleto) {
+      q = q.or(`estado_partido.eq.en_vivo,and(fecha_hora.gte.${desde},fecha_hora.lte.${hasta})`);
+    }
+    if (ligaIds) q = q.in("liga_id", ligaIds);
+    let { data: partidos } = await q.limit(fixtureCompleto ? 2000 : 300);
+
+    if (!partidos || partidos.length === 0) {
+      // Temporada parada: mostrar los últimos partidos disponibles.
+      let fb = supabase.from("partidos").select(cols).order("fecha_hora", { ascending: false });
+      if (ligaIds) fb = fb.in("liga_id", ligaIds);
+      ({ data: partidos } = await fb.limit(LIMITE_FALLBACK));
     }
 
-    // Si no hay ligas asignadas específicas, obtenemos todas las ligas registradas
-    if (ligasAutorizadas.length === 0) {
-      const { data: todasLigas } = await supabase.from("ligas").select("id");
-      if (todasLigas) {
-        ligasAutorizadas = todasLigas.map(l => l.id);
-      }
-    }
+    // Partidos exclusivos de otro medio no se muestran.
+    partidos = (partidos || []).filter((p) => !p.cliente_id || p.cliente_id === cliente.id);
 
-    // Filtrar ligas pedidas si viene leaguesParam
-    if (leaguesParam && ligasAutorizadas.length > 0) {
-      const leagueIds = leaguesParam.split(",").map(id => id.trim());
-      ligasAutorizadas = ligasAutorizadas.filter(id => leagueIds.includes(id));
-    }
+    // 3. Equipos y ligas de esos partidos
+    const equipoIds = [...new Set(partidos.flatMap((p) => [p.equipo_local_id, p.equipo_visitante_id]))];
+    const ligaIdsUsadas = [...new Set(partidos.map((p) => p.liga_id))];
 
-    // 4. Obtener partidos de las ligas autorizadas
-    let dataPartidos: any[] = [];
-    if (ligasAutorizadas.length > 0) {
-      const { data: partidosFound, error: partidosError } = await supabase
-        .from("partidos")
-        .select("*")
-        .in("liga_id", ligasAutorizadas);
+    const [{ data: equipos }, { data: ligas }] = await Promise.all([
+      equipoIds.length
+        ? supabase.from("equipos").select("id, nombre_equipo, logo_url").in("id", equipoIds)
+        : Promise.resolve({ data: [] as { id: string; nombre_equipo: string; logo_url: string | null }[] }),
+      ligaIdsUsadas.length
+        ? supabase.from("ligas").select("id, nombre_liga").in("id", ligaIdsUsadas)
+        : Promise.resolve({ data: [] as { id: string; nombre_liga: string }[] }),
+    ]);
 
-      if (!partidosError && partidosFound) {
-        if (realClientId) {
-          dataPartidos = partidosFound.filter(p => !p.cliente_id || p.cliente_id === "todos" || p.cliente_id === realClientId);
-        } else {
-          dataPartidos = partidosFound;
-        }
-      }
-    } else {
-      // Fallback: traer todos los partidos existentes
-      const { data: todosPartidos } = await supabase.from("partidos").select("*");
-      if (todosPartidos) {
-        if (realClientId) {
-          dataPartidos = todosPartidos.filter(p => !p.cliente_id || p.cliente_id === "todos" || p.cliente_id === realClientId);
-        } else {
-          dataPartidos = todosPartidos;
-        }
-      }
-    }
-
-    const { data: dataEquipos } = await supabase.from("equipos").select("*");
-    const { data: dataLigas } = await supabase.from("ligas").select("*");
+    const equiposMap = new Map((equipos || []).map((e) => [e.id, e]));
+    const ligasMap = new Map((ligas || []).map((l) => [l.id, l]));
 
     const appOrigin = process.env.NEXT_PUBLIC_APP_URL || "https://widget-futbol-muove.vercel.app";
     const formatLogoUrl = (logoUrl?: string | null): string => {
       if (!logoUrl) return "";
-      if (logoUrl.startsWith("http://") || logoUrl.startsWith("https://")) {
-        return logoUrl;
-      }
-      const cleanPath = logoUrl.startsWith("/") ? logoUrl : `/${logoUrl}`;
-      return `${appOrigin}${cleanPath}`;
+      if (/^https?:\/\//.test(logoUrl)) return logoUrl;
+      return `${appOrigin}${logoUrl.startsWith("/") ? "" : "/"}${logoUrl}`;
     };
 
-    const now = new Date();
+    const resultado = partidos.map((p) => {
+      const local = equiposMap.get(p.equipo_local_id);
+      const visitante = equiposMap.get(p.equipo_visitante_id);
 
-    const partidosMapeados = (dataPartidos || []).map((p: any) => {
-      const local = dataEquipos?.find(e => e.id === p.equipo_local_id);
-      const visitante = dataEquipos?.find(e => e.id === p.equipo_visitante_id);
-      const liga = dataLigas?.find(l => l.id === p.liga_id);
-      
-      let estado = p.estado_partido;
-      let minuto = p.minuto_actual;
-      const start = p.fecha_hora ? new Date(p.fecha_hora) : null;
-
-      // Lógica de auto "en vivo" si está programado pero ya comenzó
-      if (p.estado_partido === "programado" && start && !isNaN(start.getTime()) && now >= start) {
-        estado = "en_vivo";
-        if (minuto === null) {
-          const diffMin = Math.floor((now.getTime() - start.getTime()) / 60000);
-          if (diffMin < 45) {
-            minuto = diffMin;
-          } else if (diffMin >= 45 && diffMin < 60) {
-            minuto = "ET";
-          } else if (diffMin >= 60 && diffMin < 105) {
-            minuto = diffMin - 15;
-          } else {
-            minuto = "90+";
-          }
-        }
-      }
+      const reloj = matchClock(p, now);
+      const estado = reloj.estado;
+      const minuto = reloj.minuto;
 
       return {
         id: p.id,
@@ -196,117 +165,44 @@ export async function GET(request: NextRequest) {
         goles_visitante: p.goles_visitante,
         estado_partido: estado,
         fecha_hora: p.fecha_hora || null,
-        minuto_actual: minuto,
-        liga_nombre: liga?.nombre_liga || "Torneo",
+        minuto_actual: minuto, // compatibilidad: ahora es texto ("37'", "ET"...)
+        minuto,
+        minuto_estimado: reloj.estimado,
+        // Para que el widget haga avanzar el minuto sin volver a consultar.
+        reloj:
+          estado === "en_vivo" && (p.periodo === "1T" || p.periodo === "2T" || p.periodo === "ET")
+            ? { periodo: p.periodo, inicio: p.periodo_inicio || null }
+            : null,
+        liga_nombre: ligasMap.get(p.liga_id)?.nombre_liga || "Torneo",
         jornada: p.jornada || null,
-        equipo_local: {
-          nombre: local?.nombre_equipo || "Local",
-          logo: formatLogoUrl(local?.logo_url)
-        },
-        equipo_visitante: {
-          nombre: visitante?.nombre_equipo || "Visitante",
-          logo: formatLogoUrl(visitante?.logo_url)
-        }
+        equipo_local: { nombre: local?.nombre_equipo || "Local", logo: formatLogoUrl(local?.logo_url) },
+        equipo_visitante: { nombre: visitante?.nombre_equipo || "Visitante", logo: formatLogoUrl(visitante?.logo_url) },
       };
     });
 
-    // Ordenar cronológicamente: en vivo primero, luego programados/demorados (el más cercano primero), y luego finalizados/suspendidos (el más reciente/nuevo primero)
-    const partidosResultado = partidosMapeados.sort((a, b) => {
-      const getGrupo = (est: string) => {
-        if (est === "en_vivo") return 0;
-        if (est === "programado" || est === "demorado") return 1;
-        return 2; // finalizado, suspendido
-      };
-
-      const grupoA = getGrupo(a.estado_partido);
-      const grupoB = getGrupo(b.estado_partido);
-
-      if (grupoA !== grupoB) {
-        return grupoA - grupoB;
-      }
-
-      const timeA = a.fecha_hora && !isNaN(new Date(a.fecha_hora).getTime()) ? new Date(a.fecha_hora).getTime() : 9999999999999;
-      const timeB = b.fecha_hora && !isNaN(new Date(b.fecha_hora).getTime()) ? new Date(b.fecha_hora).getTime() : 9999999999999;
-
-      if (grupoA === 1) {
-        return timeA - timeB;
-      } else {
-        return timeB - timeA;
-      }
+    // En vivo primero; luego próximos (más cercano primero); luego resultados (más reciente primero).
+    const grupo = (e: string) => (e === "en_vivo" ? 0 : e === "programado" || e === "demorado" ? 1 : 2); // a_confirmar va con resultados
+    const t = (f: string | null) => (f ? new Date(f).getTime() || Infinity : Infinity);
+    resultado.sort((a, b) => {
+      const ga = grupo(a.estado_partido);
+      const gb = grupo(b.estado_partido);
+      if (ga !== gb) return ga - gb;
+      return ga === 1 ? t(a.fecha_hora) - t(b.fecha_hora) : t(b.fecha_hora) - t(a.fecha_hora);
     });
 
-
-    const colorSec = configGlobal.color_secundario || "#00E676";
-    let colorFondoTarjeta = "#121214";
-    let colorTextoPrincipal = "#f4f4f5";
-    let colorTextoSecundario = "#a1a1aa";
-    let fuenteFamilia = "sans-serif";
-    let colorBorde1 = "#7F35B2";
-    let colorBorde2 = "#EF426F";
-    let sponsorUrl = "";
-    const rawLogoVal: string | null = (configGlobal as any)?.logo_medio_url || null;
-    let logoClean: string | null = rawLogoVal;
-
-    if (rawLogoVal && rawLogoVal.includes("___CFG___")) {
-      const parts = rawLogoVal.split("___CFG___");
-      logoClean = parts[0] || null;
-      if (parts[1]) {
-        const cfg = parts[1].split("|");
-        colorFondoTarjeta = cfg[0] || "#121214";
-        colorTextoPrincipal = cfg[1] || "#f4f4f5";
-        colorTextoSecundario = cfg[2] || "#a1a1aa";
-        fuenteFamilia = cfg[3] || "sans-serif";
-        colorBorde1 = cfg[4] || "#7F35B2";
-        colorBorde2 = cfg[5] || "#EF426F";
-        sponsorUrl = cfg[6] || "";
-      }
-    }
-
-    const nombreMedioClean = (cliente?.nombre_medio || "").toLowerCase();
-    const esDataNE = nombreMedioClean.includes("datane") || nombreMedioClean.includes("dataene");
-    const mostrarProde = esDataNE || Boolean((configGlobal as any)?.mostrar_prode);
-
-    return NextResponse.json(
-      {
-        success: true,
-        nombre_medio: cliente.nombre_medio,
-        estilo: {
-          color_primario: configGlobal.color_primario,
-          color_secundario: colorSec,
-          color_fondo_tarjeta: colorFondoTarjeta,
-          color_texto_principal: colorTextoPrincipal,
-          color_texto_secundario: colorTextoSecundario,
-          color_borde_1: colorBorde1,
-          color_borde_2: colorBorde2,
-          fuente_familia: fuenteFamilia,
-          logo_medio_url: logoClean,
-          sponsor_url: sponsorUrl,
-          mostrar_escudos: configGlobal.mostrar_escudos,
-          mostrar_prode: mostrarProde
-        },
-        partidos: partidosResultado
-      },
-      { status: 200, headers }
+    return respond(
+      { success: true, cliente_id: cliente.id, nombre_medio: cliente.nombre_medio, estilo, partidos: resultado, server_time: now },
+      200
     );
-
-  } catch (err: any) {
+  } catch (err) {
     console.error("API WIDGET ERROR:", err);
     return NextResponse.json(
-      { success: false, error: err?.message || String(err) },
-      { status: 500, headers }
+      { success: false, error: "Error interno del widget" },
+      { status: 500, headers: { ...CORS, "Cache-Control": "no-store" } }
     );
   }
-
 }
 
-// Habilitar soporte de preflight OPTIONS para CORS
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+  return new NextResponse(null, { status: 204, headers: CORS });
 }
