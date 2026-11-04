@@ -1,9 +1,12 @@
 "use client";
 
+import { toast } from "@/components/Toaster";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { db, logout } from "@/lib/db-client";
+import { matchClock } from "@/lib/match-clock";
 import ProdeParticipantsManager from "@/components/ProdeParticipantsManager";
+import MetricasPanel from "@/components/MetricasPanel";
 
 type Liga = {
   id: string;
@@ -26,6 +29,8 @@ type Partido = {
   estado_partido: string;
   fecha_hora?: string | null;
   minuto_actual: number | null;
+  periodo?: string | null;
+  periodo_inicio?: string | null;
   liga_id: string;
   cliente_id?: string | null;
   equipo_local?: Equipo;
@@ -43,16 +48,20 @@ export default function JournalistCMS() {
   const [selectedLigaId, setSelectedLigaId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [updatingMatchId, setUpdatingMatchId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"partidos" | "prode_participantes">("partidos");
+  // Reloj para que el minuto de los partidos en vivo avance en pantalla.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
+  const [activeTab, setActiveTab] = useState<"partidos" | "prode_participantes" | "metricas">("partidos");
 
   // Estados de Filtros de Partidos para el Periodista
   const [filterEstado, setFilterEstado] = useState<"activos" | "en_vivo" | "programados" | "finalizados" | "todos">("activos");
   const [filterJornada, setFilterJornada] = useState<string>("");
 
-  // Estados de Autenticación
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
-  const [authError, setAuthError] = useState("");
+  // Sesión (la valida el layout del servidor; acá solo se lee para saber el medio)
+  const [sessionNombre, setSessionNombre] = useState("");
 
   // Estado para programación de partidos
   const [newPartido, setNewPartido] = useState({
@@ -67,26 +76,31 @@ export default function JournalistCMS() {
     async function initDataNE() {
       setLoading(true);
       try {
-        // Cargar todos los clientes de medios registrados
-        const { data: allClientes } = await supabase
+        const meRes = await fetch("/api/auth/me");
+        const me = meRes.ok ? (await meRes.json()).session : null;
+        if (!me) {
+          window.location.reload();
+          return;
+        }
+        setSessionNombre(me.nombre || "");
+
+        // Periodista: el servidor solo devuelve su propio medio. Super-admin: todos.
+        const { data: allClientes } = await db
           .from("clientes")
           .select("id, nombre_medio")
           .order("nombre_medio");
-        
         setClientes(allClientes || []);
 
-        let targetClient = allClientes && allClientes.length > 0 ? allClientes[0] : null;
-        const clientId = targetClient ? targetClient.id : "datane-default-id";
+        const clientId: string = me.clienteId || allClientes?.[0]?.id || "";
         setSelectedClientId(clientId);
-        setIsAuthenticated(true);
 
-        const { data: dataEquipos } = await supabase
+        const { data: dataEquipos } = await db
           .from("equipos")
           .select("*")
           .order("nombre_equipo");
         setEquipos(dataEquipos || []);
 
-        const { data: dataLigas } = await supabase
+        const { data: dataLigas } = await db
           .from("ligas")
           .select("*")
           .order("nombre_liga");
@@ -119,7 +133,7 @@ export default function JournalistCMS() {
   }, [selectedLigaId]);
 
   async function fetchPartidos(ligaId: string, clientId: string = selectedClientId, eqList: Equipo[] = equipos) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("partidos")
       .select("*")
       .eq("liga_id", ligaId)
@@ -138,53 +152,7 @@ export default function JournalistCMS() {
   }
 
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedClientId) {
-      setAuthError("Selecciona tu medio digital.");
-      return;
-    }
-    if (!password) {
-      setAuthError("Ingresa tu PIN/Clave de acceso.");
-      return;
-    }
-
-    setLoading(true);
-    setAuthError("");
-
-    try {
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("id, nombre_medio, clave_periodista")
-        .eq("id", selectedClientId)
-        .eq("clave_periodista", password)
-        .maybeSingle();
-
-      if (error || !data) {
-        setAuthError("Clave incorrecta. Verifica e intenta de nuevo.");
-      } else {
-        localStorage.setItem("muove_journalist_client_id", selectedClientId);
-        localStorage.setItem("muove_journalist_session_active", "true");
-        setIsAuthenticated(true);
-        if (selectedLigaId) {
-          await fetchPartidos(selectedLigaId, selectedClientId, equipos);
-        }
-      }
-    } catch (err) {
-      setAuthError("Error de comunicación con el servidor.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleLogout() {
-    localStorage.removeItem("muove_journalist_session_active");
-    setIsAuthenticated(false);
-    setPassword("");
-    setLigas([]);
-    setPartidos([]);
-    setSelectedLigaId("");
-  }
+  const handleLogout = logout;
 
 
   const formatForDatetimeLocal = (isoStr?: string | null) => {
@@ -198,51 +166,60 @@ export default function JournalistCMS() {
   // --- LÓGICA DE PROGRAMACIÓN Y TRANSMISIÓN ---
 
   function getMatchLiveStatus(partido: Partido) {
-    const now = new Date();
+    const reloj = matchClock(partido, nowTick);
     const start = partido.fecha_hora ? new Date(partido.fecha_hora) : null;
     const hasValidStart = start && !isNaN(start.getTime());
-    
-    if (partido.estado_partido === "finalizado") {
-      return { label: "FINALIZADO", styleClass: "bg-blue-500/10 text-blue-400 border border-blue-500/20", isLive: false, minuteText: "Finalizado" };
-    }
-    if (partido.estado_partido === "suspendido") {
-      return { label: "SUSPENDIDO", styleClass: "bg-red-500/10 text-red-500 border border-red-500/20", isLive: false, minuteText: "Suspendido" };
-    }
-    if (partido.estado_partido === "demorado") {
-      return { label: "DEMORADO", styleClass: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20", isLive: false, minuteText: "Demorado" };
-    }
-    
-    if (partido.estado_partido === "programado" && hasValidStart && now >= start) {
-      let minuteStr = "";
-      if (partido.minuto_actual !== null) {
-        minuteStr = `${partido.minuto_actual}'`;
-      } else {
-        const diffMin = Math.floor((now.getTime() - start.getTime()) / 60000);
-        if (diffMin < 45) {
-          minuteStr = `${diffMin}'`;
-        } else if (diffMin >= 45 && diffMin < 60) {
-          minuteStr = "ET";
-        } else if (diffMin >= 60 && diffMin < 105) {
-          minuteStr = `${diffMin - 15}'`;
-        } else {
-          minuteStr = "90+'";
-        }
+
+    switch (reloj.estado) {
+      case "finalizado":
+        return { label: "FINALIZADO", styleClass: "bg-blue-500/10 text-blue-400 border border-blue-500/20", isLive: false, minuteText: "Finalizado" };
+      case "suspendido":
+        return { label: "SUSPENDIDO", styleClass: "bg-red-500/10 text-red-500 border border-red-500/20", isLive: false, minuteText: "Suspendido" };
+      case "demorado":
+        return { label: "DEMORADO", styleClass: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20", isLive: false, minuteText: "Demorado" };
+      case "a_confirmar":
+        return { label: "SIN CERRAR · CARGÁ EL RESULTADO", styleClass: "bg-orange-500/10 text-orange-400 border border-orange-500/30", isLive: false, minuteText: "A confirmar" };
+      case "en_vivo": {
+        const min = reloj.minuto === "ET" ? "ENTRETIEMPO" : reloj.minuto || "";
+        return {
+          label: `EN VIVO${min ? ` - ${min}` : ""}${reloj.estimado ? " (estimado)" : ""}`,
+          styleClass: "bg-green-500/10 text-green-400 border border-green-500/20 animate-pulse",
+          isLive: true,
+          minuteText: min,
+        };
       }
-      return { 
-        label: `EN VIVO - ${minuteStr}`, 
-        styleClass: "bg-green-500/10 text-green-400 border border-green-500/20 animate-pulse", 
-        isLive: true, 
-        minuteText: minuteStr 
-      };
+      default: {
+        const formattedTime = hasValidStart
+          ? `${start.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "America/Argentina/Buenos_Aires" })} HS`
+          : "A CONFIRMAR";
+        return {
+          label: `PROGRAMADO - ${formattedTime}`,
+          styleClass: "bg-zinc-800 text-zinc-400 border border-zinc-700",
+          isLive: false,
+          minuteText: "Programado",
+        };
+      }
     }
-    
-    const formattedTime = hasValidStart ? `${start.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' })} HS` : "A CONFIRMAR";
-    return { 
-      label: `PROGRAMADO - ${formattedTime}`, 
-      styleClass: "bg-zinc-800 text-zinc-400 border border-zinc-700", 
-      isLive: false, 
-      minuteText: "Programado" 
-    };
+  }
+
+  /** Botones de reloj: Iniciar 1T / Entretiempo / Iniciar 2T / Finalizar. */
+  async function handleClock(partidoId: string, accion: "1T" | "ET" | "2T" | "FIN") {
+    if (accion === "FIN" && !confirm("¿Finalizar el partido? Con esto se calculan los puntos del Prode.")) return;
+
+    const payload =
+      accion === "FIN"
+        ? { estado_partido: "finalizado", periodo: null, periodo_inicio: null, minuto_actual: null }
+        : { estado_partido: "en_vivo", periodo: accion, periodo_inicio: new Date().toISOString(), minuto_actual: null };
+
+    setUpdatingMatchId(partidoId);
+    const { error } = await db.from("partidos").update(payload).eq("id", partidoId);
+    if (error) {
+      toast.error("Error al actualizar el reloj del partido: " + error.message);
+    } else {
+      setPartidos(partidos.map(p => p.id === partidoId ? { ...p, ...payload } : p));
+      setNowTick(Date.now());
+    }
+    setUpdatingMatchId(null);
   }
 
   async function handleCreatePartido(e: React.FormEvent) {
@@ -252,7 +229,7 @@ export default function JournalistCMS() {
 
     const targetClienteId = destinatario === "todos" ? null : destinatario;
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("partidos")
       .insert([{
         liga_id,
@@ -265,25 +242,25 @@ export default function JournalistCMS() {
       .select();
 
     if (error) {
-      alert("Error al programar partido: " + error.message);
+      toast.error("Error al programar partido: " + error.message);
     } else {
       setNewPartido({ liga_id: "", equipo_local_id: "", equipo_visitante_id: "", fecha_hora: "", destinatario: "todos" });
       if (selectedLigaId === liga_id) {
         fetchPartidos(liga_id);
       }
-      alert("¡Partido programado exitosamente!");
+      toast.success("¡Partido programado exitosamente!");
     }
   }
 
   async function handleUpdateClienteDestino(partidoId: string, clienteVal: string) {
     const targetVal = clienteVal === "todos" ? null : clienteVal;
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update({ cliente_id: targetVal })
       .eq("id", partidoId);
 
     if (error) {
-      alert("Error al actualizar diario destinatario: " + error.message);
+      toast.error("Error al actualizar diario destinatario: " + error.message);
     } else {
       setPartidos(partidos.map(p => p.id === partidoId ? { ...p, cliente_id: targetVal } : p));
     }
@@ -296,13 +273,13 @@ export default function JournalistCMS() {
       payload.minuto_actual = null;
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update(payload)
       .eq("id", partidoId);
 
     if (error) {
-      alert("Error al actualizar estado del partido: " + error.message);
+      toast.error("Error al actualizar estado del partido: " + error.message);
     } else {
       setPartidos(partidos.map(p => p.id === partidoId ? { ...p, ...payload } : p));
     }
@@ -316,13 +293,13 @@ export default function JournalistCMS() {
     const nuevosGolesLocal = tipo === "local" ? Math.max(0, partido.goles_local + cantidad) : partido.goles_local;
     const nuevosGolesVisitante = tipo === "visitante" ? Math.max(0, partido.goles_visitante + cantidad) : partido.goles_visitante;
 
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update({ goles_local: nuevosGolesLocal, goles_visitante: nuevosGolesVisitante })
       .eq("id", partidoId);
 
     if (error) {
-      alert("Error al actualizar goles: " + error.message);
+      toast.error("Error al actualizar goles: " + error.message);
     } else {
       setPartidos(partidos.map(p => p.id === partidoId ? { ...p, goles_local: nuevosGolesLocal, goles_visitante: nuevosGolesVisitante } : p));
     }
@@ -332,7 +309,7 @@ export default function JournalistCMS() {
     const minuto = parseInt(minutoStr, 10);
     if (isNaN(minuto)) return;
 
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update({ minuto_actual: minuto })
       .eq("id", partidoId);
@@ -345,7 +322,7 @@ export default function JournalistCMS() {
   }
 
   async function handleUpdateJornada(partidoId: string, jornadaVal: string) {
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update({ jornada: jornadaVal === "" ? null : jornadaVal })
       .eq("id", partidoId);
@@ -359,7 +336,7 @@ export default function JournalistCMS() {
 
   async function handleUpdateFechaHora(partidoId: string, fechaHoraVal: string) {
     const isoVal = fechaHoraVal ? new Date(fechaHoraVal).toISOString() : null;
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update({ fecha_hora: isoVal })
       .eq("id", partidoId);
@@ -376,94 +353,19 @@ export default function JournalistCMS() {
       return;
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .delete()
       .eq("id", partidoId);
 
     if (error) {
-      alert("Error al eliminar partido: " + error.message);
+      toast.error("Error al eliminar partido: " + error.message);
     } else {
       setPartidos(partidos.filter(p => p.id !== partidoId));
-      alert("¡Partido eliminado exitosamente!");
+      toast.success("¡Partido eliminado exitosamente!");
     }
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#09090b] text-[#f4f4f5] font-sans flex flex-col justify-center items-center px-4 py-12">
-        <div className="w-full max-w-md bg-[#121214] border border-[#27272a] rounded-2xl p-8 shadow-2xl shadow-black/80">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-white tracking-wide">
-              MUOVE <span className="text-[#ff7900]">CMS</span>
-            </h1>
-            <p className="text-xs text-zinc-400 mt-2">Acceso exclusivo para periodistas de diarios asociados</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">
-                Selecciona tu Diario / Medio
-              </label>
-              {loading && clientes.length === 0 ? (
-                <div className="h-12 bg-[#09090b] rounded-xl animate-pulse"></div>
-              ) : (
-                <select
-                  value={selectedClientId}
-                  onChange={e => {
-                    setSelectedClientId(e.target.value);
-                    setAuthError("");
-                  }}
-                  className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#ff7900]/50 transition-colors"
-                  required
-                >
-                  <option value="">-- Seleccionar Diario --</option>
-                  {clientes.map(c => (
-                    <option key={c.id} value={c.id}>{c.nombre_medio}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">
-                PIN / Clave de Acceso
-              </label>
-              <input
-                type="password"
-                placeholder="••••••"
-                value={password}
-                onChange={e => {
-                  setPassword(e.target.value);
-                  setAuthError("");
-                }}
-                className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#ff7900]/50 transition-colors text-center tracking-widest text-lg"
-                required
-              />
-            </div>
-
-            {authError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs py-3 px-4 rounded-xl text-center font-semibold">
-                {authError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#ff7900] hover:bg-[#e06b00] disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-all text-sm shadow-lg shadow-[#ff7900]/10 flex justify-center items-center"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                "Ingresar al Panel"
-              )}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
   return (
     <div className="min-h-screen bg-[#09090b] text-[#f4f4f5] font-sans pb-16">
       {/* Header */}
@@ -471,17 +373,23 @@ export default function JournalistCMS() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-wide">
-              DIARIO DATANE <span className="text-[#ff7900]">| PANEL DE CONTROL</span>
+              {(sessionNombre || "Medio").toUpperCase()} <span className="text-[#ff7900]">| PANEL DE CONTROL</span>
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs bg-[#ff7900]/10 text-[#ff7900] px-2 py-0.5 rounded font-bold border border-[#ff7900]/20">
-                DataNE Fútbol & Prode
+                Fútbol & Prode
               </span>
               <span className="text-xs text-zinc-500">Gestión en Vivo</span>
             </div>
 
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Link
+              href="/admin/en-vivo"
+              className="text-xs text-black bg-[#ff7900] hover:bg-[#e06b00] px-4 py-2 rounded-xl transition-all font-extrabold"
+            >
+              🔴 Modo En Vivo (celular)
+            </Link>
             <button
               onClick={handleLogout}
               className="text-xs text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/40 px-4 py-2 rounded-xl bg-[#09090b] transition-all font-semibold"
@@ -497,7 +405,7 @@ export default function JournalistCMS() {
 
       <main className="max-w-7xl mx-auto px-4 mt-8">
         {/* Navigation Tabs */}
-        <div className="flex border-b border-[#27272a] mb-8 gap-4">
+        <div className="flex border-b border-[#27272a] mb-8 gap-4 overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setActiveTab("partidos")}
             className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
@@ -518,9 +426,23 @@ export default function JournalistCMS() {
           >
             🏆 Usuarios del Prode & Mensajes
           </button>
+          <button
+            onClick={() => setActiveTab("metricas")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === "metricas"
+                ? "border-[#ff7900] text-[#ff7900]"
+                : "border-transparent text-zinc-400 hover:text-white"
+            }`}
+          >
+            📈 Métricas
+          </button>
         </div>
 
-        {activeTab === "prode_participantes" ? (
+        {activeTab === "metricas" ? (
+          selectedClientId ? (
+            <MetricasPanel clientes={clientes} fixedClienteId={selectedClientId} />
+          ) : null
+        ) : activeTab === "prode_participantes" ? (
           <ProdeParticipantsManager defaultClientId={selectedClientId} clientesList={clientes} />
         ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -839,6 +761,31 @@ export default function JournalistCMS() {
 
                         {/* Controles de Periodista */}
                         <div className="space-y-4">
+                          {/* Reloj del partido */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {([
+                              { accion: "1T", texto: "▶ Iniciar 1T", activo: partido.estado_partido === "en_vivo" && partido.periodo === "1T" },
+                              { accion: "ET", texto: "⏸ Entretiempo", activo: partido.estado_partido === "en_vivo" && partido.periodo === "ET" },
+                              { accion: "2T", texto: "▶ Iniciar 2T", activo: partido.estado_partido === "en_vivo" && partido.periodo === "2T" },
+                              { accion: "FIN", texto: "🏁 Finalizar", activo: partido.estado_partido === "finalizado" },
+                            ] as const).map(btn => (
+                              <button
+                                key={btn.accion}
+                                type="button"
+                                disabled={updatingMatchId === partido.id}
+                                onClick={() => handleClock(partido.id, btn.accion)}
+                                aria-pressed={btn.activo}
+                                className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 ${
+                                  btn.activo
+                                    ? "bg-green-500/15 text-green-400 border-green-500/40"
+                                    : "bg-[#09090b] text-zinc-300 border-[#27272a] hover:border-[#ff7900]/40 hover:text-white"
+                                }`}
+                              >
+                                {btn.texto}
+                              </button>
+                            ))}
+                          </div>
+
                           {/* Fila de Botones Goles */}
                           <div className="grid grid-cols-2 gap-4">
                             <div className="flex gap-2">
@@ -875,7 +822,7 @@ export default function JournalistCMS() {
                           {/* Control de Minuto Manual & Selector de Estado */}
                           <div className="flex flex-col sm:flex-row gap-4 items-end pt-2 border-t border-[#27272a]/30">
                             <div className="flex items-center gap-2 w-full sm:w-1/2">
-                              <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap">MINUTO MANUAL:</span>
+                              <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap" title="Solo si no usás los botones de reloj">MINUTO MANUAL:</span>
                               <input
                                 type="number"
                                 min="0"
@@ -895,6 +842,7 @@ export default function JournalistCMS() {
                                 className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50 font-semibold"
                               >
                                 <option value="programado">Normal (Automático)</option>
+                                <option value="en_vivo">🟢 En vivo</option>
                                 <option value="demorado">⚠️ Demorado</option>
                                 <option value="suspendido">🛑 Suspendido</option>
                                 <option value="finalizado">🏁 Finalizado</option>

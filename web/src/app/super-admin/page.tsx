@@ -1,9 +1,15 @@
 "use client";
 
+import { toast } from "@/components/Toaster";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { db, uploadImage, logout } from "@/lib/db-client";
+import { parseWidgetConfig, safeUrl, toConfigRow, type FontKey, type Tema } from "@/lib/widget-config";
 import ProdeParticipantsManager from "@/components/ProdeParticipantsManager";
+import IntegracionPanel from "./_components/IntegracionPanel";
+import NoticiasPanel from "./_components/NoticiasPanel";
+import FixtureImport from "./_components/FixtureImport";
+import MetricasPanel from "@/components/MetricasPanel";
 
 declare global {
   namespace JSX {
@@ -24,7 +30,8 @@ type Cliente = {
   email: string;
   estado: string;
   ciudad: string | null;
-  clave_periodista: string;
+  clave_periodista?: string; // solo escritura: el servidor nunca la devuelve
+  tiene_clave?: boolean;
   created_at: string;
 };
 
@@ -60,16 +67,8 @@ type Partido = {
 };
 
 export default function SuperAdmin() {
-  const [activeTab, setActiveTab] = useState<"clientes" | "ligas" | "partidos" | "integracion" | "noticias" | "prode_participantes">("clientes");
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"clientes" | "ligas" | "partidos" | "integracion" | "noticias" | "prode_participantes" | "metricas">("clientes");
 
-  // States para Noticias / Carrusel
-  const [newsList, setNewsList] = useState<any[]>([]);
-  const [newsUrlInput, setNewsUrlInput] = useState("");
-  const [extractingNews, setExtractingNews] = useState(false);
-  const [extractedPreview, setExtractedPreview] = useState<any | null>(null);
-  const [newsMsg, setNewsMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  
   // States para datos
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [ligas, setLigas] = useState<Liga[]>([]);
@@ -118,6 +117,11 @@ export default function SuperAdmin() {
   const [configLogoUrl, setConfigLogoUrl] = useState("");
   const [configLogoFile, setConfigLogoFile] = useState<File | null>(null);
   const [configSponsorUrl, setConfigSponsorUrl] = useState("");
+  const [configMostrarProde, setConfigMostrarProde] = useState(false);
+  const [configTema, setConfigTema] = useState<Tema>("oscuro");
+  const [configMostrarPosiciones, setConfigMostrarPosiciones] = useState(false);
+  const [configMostrarGoleadores, setConfigMostrarGoleadores] = useState(false);
+  const [configProdeUrl, setConfigProdeUrl] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
@@ -143,28 +147,28 @@ export default function SuperAdmin() {
     setLoading(true);
     try {
       // 1. Clientes
-      const { data: dataClientes } = await supabase
+      const { data: dataClientes } = await db
         .from("clientes")
         .select("*")
         .order("created_at", { ascending: false });
       setClientes(dataClientes || []);
 
       // 2. Ligas
-      const { data: dataLigas } = await supabase
+      const { data: dataLigas } = await db
         .from("ligas")
         .select("id, nombre_liga, es_profesional, api_liga_id")
         .order("nombre_liga");
       setLigas(dataLigas || []);
 
       // 3. Equipos
-      const { data: dataEquipos } = await supabase
+      const { data: dataEquipos } = await db
         .from("equipos")
         .select("*")
         .order("nombre_equipo");
       setEquipos(dataEquipos || []);
 
       // 4. Partidos
-      const { data: dataPartidos } = await supabase
+      const { data: dataPartidos } = await db
         .from("partidos")
         .select("*")
         .order("fecha_hora", { ascending: true });
@@ -172,19 +176,17 @@ export default function SuperAdmin() {
       // Mapear equipos a partidos localmente para simplificar la consulta
       const partidosMapeados = (dataPartidos || []).map((p: any) => ({
         ...p,
-        equipo_local: dataEquipos?.find(e => e.id === p.equipo_local_id),
-        equipo_visitante: dataEquipos?.find(e => e.id === p.equipo_visitante_id)
+        equipo_local: dataEquipos?.find((e: Equipo) => e.id === p.equipo_local_id),
+        equipo_visitante: dataEquipos?.find((e: Equipo) => e.id === p.equipo_visitante_id)
       }));
       setPartidos(partidosMapeados);
 
       // 5. Suscripciones a ligas
-      const { data: dataSuscripciones } = await supabase
+      const { data: dataSuscripciones } = await db
         .from("clientes_ligas")
         .select("*");
       setSuscripciones(dataSuscripciones || []);
 
-      // 6. Noticias del carrusel
-      await fetchNewsList();
 
     } catch (err) {
       console.error("Error al cargar datos:", err);
@@ -193,147 +195,29 @@ export default function SuperAdmin() {
     }
   }
 
-  async function fetchNewsList() {
-    try {
-      const res = await fetch("/api/news?all=true");
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setNewsList(data.noticias || []);
-      }
-    } catch (e) {
-      console.error("Error al obtener noticias en SuperAdmin:", e);
-    }
-  }
-
-  async function handleExtractNews(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newsUrlInput.trim()) return;
-    setNewsMsg(null);
-    setExtractingNews(true);
-    setExtractedPreview(null);
-
-    try {
-      const res = await fetch("/api/news/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: newsUrlInput.trim() }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setExtractedPreview(data.data);
-      } else {
-        setNewsMsg({ type: "error", text: data.error || "No se pudieron extraer metadatos de la URL." });
-      }
-    } catch (e) {
-      setNewsMsg({ type: "error", text: "Error de red al conectar con el servidor." });
-    } finally {
-      setExtractingNews(false);
-    }
-  }
-
-  async function handleSaveExtractedNews() {
-    if (!extractedPreview) return;
-    setNewsMsg(null);
-
-    try {
-      const res = await fetch("/api/news", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(extractedPreview),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setNewsMsg({ type: "success", text: "¡Noticia publicada con éxito en el carrusel!" });
-        setNewsUrlInput("");
-        setExtractedPreview(null);
-        setNewsList(data.noticias || []);
-      } else {
-        setNewsMsg({ type: "error", text: data.error || "Error al guardar noticia." });
-      }
-    } catch (e) {
-      setNewsMsg({ type: "error", text: "Error al guardar noticia." });
-    }
-  }
-
-  async function handleToggleNews(id: string) {
-    setNewsList((prev) => prev.map((n) => (n.id === id ? { ...n, active: !n.active } : n)));
-    try {
-      const res = await fetch("/api/news", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "toggle", id }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success && data.noticias) {
-        setNewsList(data.noticias);
-      }
-    } catch (e) {
-      console.error("Error al alternar noticia:", e);
-    }
-  }
-
-  async function handleDeleteNews(id: string) {
-    setNewsList((prev) => prev.filter((n) => n.id !== id));
-    try {
-      const res = await fetch("/api/news", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", id }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success && data.noticias) {
-        setNewsList(data.noticias);
-      }
-    } catch (e) {
-      console.error("Error al eliminar noticia:", e);
-    }
-  }
-
-  async function handleMoveNews(index: number, direction: "up" | "down") {
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= newsList.length) return;
-
-    const updated = [...newsList];
-    const temp = updated[index];
-    updated[index] = updated[targetIndex];
-    updated[targetIndex] = temp;
-
-    setNewsList(updated);
-
-    try {
-      const res = await fetch("/api/news", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reorder", newsList: updated }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success && data.noticias) {
-        setNewsList(data.noticias);
-      }
-    } catch (e) {
-      console.error("Error al reordenar noticias:", e);
-    }
-  }
-
   // --- ACCIONES CLIENTES ---
   async function handleCreateCliente(e: React.FormEvent) {
     e.preventDefault();
     if (!newCliente.nombre_medio || !newCliente.email) return;
+    if (newCliente.clave_periodista.trim().length < 6) {
+      toast.error("La clave del periodista debe tener al menos 6 caracteres.");
+      return;
+    }
 
     const payload = {
       nombre_medio: newCliente.nombre_medio,
       email: newCliente.email,
       ciudad: newCliente.ciudad || null,
-      clave_periodista: newCliente.clave_periodista || "123456"
+      clave_periodista: newCliente.clave_periodista.trim()
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("clientes")
       .insert([payload])
       .select();
 
     if (error) {
-      alert("Error al crear cliente: " + error.message);
+      toast.error("Error al crear cliente: " + error.message);
     } else {
       setClientes([data[0], ...clientes]);
       setNewCliente({ nombre_medio: "", email: "", ciudad: "", clave_periodista: "" });
@@ -342,13 +226,13 @@ export default function SuperAdmin() {
 
   async function toggleClienteEstado(id: string, estadoActual: string) {
     const nuevoEstado = estadoActual === "activo" ? "inactivo" : "activo";
-    const { error } = await supabase
+    const { error } = await db
       .from("clientes")
       .update({ estado: nuevoEstado })
       .eq("id", id);
 
     if (error) {
-      alert("Error al actualizar estado: " + error.message);
+      toast.error("Error al actualizar estado: " + error.message);
     } else {
       setClientes(clientes.map(c => c.id === id ? { ...c, estado: nuevoEstado } : c));
     }
@@ -357,21 +241,28 @@ export default function SuperAdmin() {
   async function handleUpdateCliente(e: React.FormEvent) {
     e.preventDefault();
     if (!editingCliente) return;
+    const nuevaClave = (editingCliente.clave_periodista || "").trim();
+    if (nuevaClave && nuevaClave.length < 6) {
+      toast.error("La nueva clave debe tener al menos 6 caracteres.");
+      return;
+    }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("clientes")
       .update({
         nombre_medio: editingCliente.nombre_medio,
         email: editingCliente.email,
         ciudad: editingCliente.ciudad || null,
-        clave_periodista: editingCliente.clave_periodista
+        // Solo se envía si se escribió una nueva; el servidor la guarda hasheada.
+        ...(nuevaClave ? { clave_periodista: nuevaClave } : {})
       })
       .eq("id", editingCliente.id);
 
     if (error) {
-      alert("Error al actualizar cliente: " + error.message);
+      toast.error("Error al actualizar cliente: " + error.message);
     } else {
-      setClientes(clientes.map(c => c.id === editingCliente.id ? editingCliente : c));
+      const actualizado = { ...editingCliente, clave_periodista: undefined, tiene_clave: editingCliente.tiene_clave || Boolean(nuevaClave) };
+      setClientes(clientes.map(c => c.id === editingCliente.id ? actualizado : c));
       setEditingCliente(null);
     }
   }
@@ -379,24 +270,24 @@ export default function SuperAdmin() {
   // --- ACCIONES SUSCRIPCIONES (LIGAS A CLIENTES) ---
   async function handleToggleSuscripcion(clienteId: string, ligaId: string, yaSuscrito: boolean) {
     if (yaSuscrito) {
-      const { error } = await supabase
+      const { error } = await db
         .from("clientes_ligas")
         .delete()
         .eq("cliente_id", clienteId)
         .eq("liga_id", ligaId);
 
       if (error) {
-        alert("Error al remover suscripción: " + error.message);
+        toast.error("Error al remover suscripción: " + error.message);
       } else {
         setSuscripciones(suscripciones.filter(s => !(s.cliente_id === clienteId && s.liga_id === ligaId)));
       }
     } else {
-      const { error } = await supabase
+      const { error } = await db
         .from("clientes_ligas")
         .insert([{ cliente_id: clienteId, liga_id: ligaId }]);
 
       if (error) {
-        alert("Error al agregar suscripción: " + error.message);
+        toast.error("Error al agregar suscripción: " + error.message);
       } else {
         fetchData();
       }
@@ -417,7 +308,7 @@ export default function SuperAdmin() {
     setConfigLogoUrl("");
     setConfigLogoFile(null);
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("configuracion_widgets")
       .select("*")
       .eq("cliente_id", clienteId)
@@ -426,27 +317,24 @@ export default function SuperAdmin() {
 
     if (error) {
       console.error("Error al cargar configuración:", error);
-    } else if (data) {
-      setConfigColorPrimario(data.color_primario || "#121214");
-      
-      const rawSec = data.color_secundario || "#00E676";
-      setConfigColorSecundario(rawSec.length <= 7 ? rawSec : "#00E676");
-      
-      let rawLogo = data.logo_medio_url || "";
-      if (rawLogo.includes("___CFG___")) {
-        const parts = rawLogo.split("___CFG___");
-        rawLogo = parts[0];
-        const cfg = parts[1] ? parts[1].split("|") : [];
-        setConfigColorFondoTarjeta(cfg[0] || "#121214");
-        setConfigColorTextoPrincipal(cfg[1] || "#f4f4f5");
-        setConfigColorTextoSecundario(cfg[2] || "#a1a1aa");
-        setConfigFuenteFamilia(cfg[3] || "sans-serif");
-        setConfigColorBorde1(cfg[4] || "#7F35B2");
-        setConfigColorBorde2(cfg[5] || "#EF426F");
-        setConfigSponsorUrl(cfg[6] || "");
-      }
-      setConfigLogoUrl(rawLogo);
+      return;
     }
+    const cfg = parseWidgetConfig(data);
+    setConfigColorPrimario(cfg.color_primario);
+    setConfigColorSecundario(cfg.color_secundario);
+    setConfigColorFondoTarjeta(cfg.color_fondo_tarjeta);
+    setConfigColorTextoPrincipal(cfg.color_texto_principal);
+    setConfigColorTextoSecundario(cfg.color_texto_secundario);
+    setConfigFuenteFamilia(cfg.fuente_familia);
+    setConfigColorBorde1(cfg.color_borde_1);
+    setConfigColorBorde2(cfg.color_borde_2);
+    setConfigSponsorUrl(cfg.sponsor_url);
+    setConfigLogoUrl(cfg.logo_medio_url);
+    setConfigMostrarProde(cfg.mostrar_prode);
+    setConfigTema(cfg.tema);
+    setConfigMostrarPosiciones(cfg.mostrar_posiciones);
+    setConfigMostrarGoleadores(cfg.mostrar_goleadores);
+    setConfigProdeUrl(cfg.prode_url);
   }
 
   async function handleSaveClienteConfig(e: React.FormEvent) {
@@ -458,56 +346,58 @@ export default function SuperAdmin() {
 
     try {
       if (configLogoFile) {
-        const fileExt = configLogoFile.name.split(".").pop();
-        const fileName = `sponsors/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from("club-logos")
-          .upload(fileName, configLogoFile);
-
-        if (uploadError) {
-          throw new Error("No se pudo subir el logo. Verifique que exista el bucket 'club-logos'.");
-        }
-
-        const { data: urlData } = supabase.storage
-          .from("club-logos")
-          .getPublicUrl(fileName);
-
-        logoUrl = urlData.publicUrl;
+        logoUrl = await uploadImage(configLogoFile, "sponsors");
       }
 
-      const { data: existingConfig } = await supabase
+      if (configSponsorUrl.trim() && !safeUrl(configSponsorUrl)) {
+        throw new Error("La URL del sponsor debe empezar con https:// o http://");
+      }
+      if (configProdeUrl.trim() && !safeUrl(configProdeUrl)) {
+        throw new Error("La URL del Prode debe empezar con https:// o http://");
+      }
+
+      const { data: existingConfig } = await db
         .from("configuracion_widgets")
         .select("id")
         .eq("cliente_id", editingConfigClienteId)
         .is("liga_id", null)
         .maybeSingle();
 
-      const baseLogo = logoUrl ? logoUrl.split("___CFG___")[0] : "";
-      const extraConfig = `___CFG___${configColorFondoTarjeta}|${configColorTextoPrincipal}|${configColorTextoSecundario}|${configFuenteFamilia}|${configColorBorde1}|${configColorBorde2}|${configSponsorUrl}`;
-      const finalLogoPayload = baseLogo ? `${baseLogo}${extraConfig}` : extraConfig;
-
       const payload = {
         cliente_id: editingConfigClienteId,
         liga_id: null,
-        color_primario: configColorPrimario.substring(0, 7),
-        color_secundario: configColorSecundario.substring(0, 7),
-        logo_medio_url: finalLogoPayload,
-        mostrar_escudos: true
+        ...toConfigRow({
+          color_primario: configColorPrimario,
+          color_secundario: configColorSecundario,
+          color_fondo_tarjeta: configColorFondoTarjeta,
+          color_texto_principal: configColorTextoPrincipal,
+          color_texto_secundario: configColorTextoSecundario,
+          color_borde_1: configColorBorde1,
+          color_borde_2: configColorBorde2,
+          fuente_familia: configFuenteFamilia as FontKey,
+          logo_medio_url: logoUrl,
+          sponsor_url: configSponsorUrl,
+          mostrar_escudos: true,
+          mostrar_prode: configMostrarProde,
+          tema: configTema,
+          mostrar_posiciones: configMostrarPosiciones,
+          mostrar_goleadores: configMostrarGoleadores,
+          prode_url: configProdeUrl,
+        }),
       };
 
       const { error } = existingConfig
-        ? await supabase.from("configuracion_widgets").update(payload).eq("id", existingConfig.id)
-        : await supabase.from("configuracion_widgets").insert([payload]);
+        ? await db.from("configuracion_widgets").update(payload).eq("id", existingConfig.id)
+        : await db.from("configuracion_widgets").insert([payload]);
 
       if (error) {
         throw error;
       }
 
-      alert("¡Configuración visual del widget guardada!");
+      toast.success("¡Configuración visual del widget guardada!");
       setEditingConfigClienteId(null);
     } catch (err: any) {
-      alert("Error al guardar: " + err.message);
+      toast.error("Error al guardar: " + err.message);
     } finally {
       setSavingConfig(false);
     }
@@ -524,13 +414,13 @@ export default function SuperAdmin() {
       api_liga_id: newLiga.es_profesional && newLiga.api_liga_id ? parseInt(newLiga.api_liga_id) : null
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("ligas")
       .insert([payload])
       .select();
 
     if (error) {
-      alert("Error al crear liga: " + error.message);
+      toast.error("Error al crear liga: " + error.message);
     } else {
       fetchData(); // Recargamos todo para actualizar las relaciones
       setNewLiga({ nombre_liga: "", es_profesional: false, api_liga_id: "" });
@@ -541,7 +431,7 @@ export default function SuperAdmin() {
     e.preventDefault();
     if (!editingLiga) return;
 
-    const { error } = await supabase
+    const { error } = await db
       .from("ligas")
       .update({
         nombre_liga: editingLiga.nombre_liga,
@@ -551,7 +441,7 @@ export default function SuperAdmin() {
       .eq("id", editingLiga.id);
 
     if (error) {
-      alert("Error al actualizar liga: " + error.message);
+      toast.error("Error al actualizar liga: " + error.message);
     } else {
       fetchData();
       setEditingLiga(null);
@@ -562,7 +452,7 @@ export default function SuperAdmin() {
     if (!selectedSyncLigaId) return;
     const ligaObj = ligas.find(l => l.id === selectedSyncLigaId);
     if (!ligaObj || !ligaObj.api_liga_id) {
-      alert("La liga seleccionada no tiene un ID de API válido.");
+      toast.error("La liga seleccionada no tiene un ID de API válido.");
       return;
     }
 
@@ -605,26 +495,10 @@ export default function SuperAdmin() {
 
     try {
       if (logoFile) {
-        const fileExt = logoFile.name.split(".").pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `logos/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("club-logos")
-          .upload(filePath, logoFile);
-
-        if (uploadError) {
-          throw new Error("No se pudo subir la imagen. ¿Creaste el bucket 'club-logos' como público en Supabase?");
-        }
-
-        const { data: urlData } = supabase.storage
-          .from("club-logos")
-          .getPublicUrl(filePath);
-
-        logoUrl = urlData.publicUrl;
+        logoUrl = await uploadImage(logoFile, "logos");
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("equipos")
         .insert([{
           nombre_equipo: newEquipo.nombre_equipo,
@@ -635,7 +509,7 @@ export default function SuperAdmin() {
         .select();
 
       if (error) {
-        alert("Error al crear equipo: " + error.message);
+        toast.error("Error al crear equipo: " + error.message);
       } else {
         setEquipos([...equipos, data[0]]);
         setNewEquipo({ nombre_equipo: "", liga_id: "" });
@@ -644,7 +518,7 @@ export default function SuperAdmin() {
         if (fileInput) fileInput.value = "";
       }
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setUploadingLogo(false);
     }
@@ -659,26 +533,10 @@ export default function SuperAdmin() {
 
     try {
       if (editingEquipoLogoFile) {
-        const fileExt = editingEquipoLogoFile.name.split(".").pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `logos/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("club-logos")
-          .upload(filePath, editingEquipoLogoFile);
-
-        if (uploadError) {
-          throw new Error("No se pudo subir el nuevo escudo a Supabase Storage.");
-        }
-
-        const { data: urlData } = supabase.storage
-          .from("club-logos")
-          .getPublicUrl(filePath);
-
-        logoUrl = urlData.publicUrl;
+        logoUrl = await uploadImage(editingEquipoLogoFile, "logos");
       }
 
-      const { error } = await supabase
+      const { error } = await db
         .from("equipos")
         .update({
           nombre_equipo: editingEquipo.nombre_equipo,
@@ -699,7 +557,7 @@ export default function SuperAdmin() {
       const fileInput = document.getElementById("edit-logo-file") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
     } catch (err: any) {
-      alert("Error al actualizar equipo: " + err.message);
+      toast.error("Error al actualizar equipo: " + err.message);
     } finally {
       setUpdatingEquipoLogo(false);
     }
@@ -719,7 +577,7 @@ export default function SuperAdmin() {
     const { liga_id, equipo_local_id, equipo_visitante_id, fecha_hora, cliente_id, jornada } = newPartido;
     if (!liga_id || !equipo_local_id || !equipo_visitante_id) return;
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("partidos")
       .insert([{
         liga_id,
@@ -733,7 +591,7 @@ export default function SuperAdmin() {
       .select();
 
     if (error) {
-      alert("Error al programar partido: " + error.message);
+      toast.error("Error al programar partido: " + error.message);
     } else {
       fetchData();
       setNewPartido({ liga_id: "", equipo_local_id: "", equipo_visitante_id: "", fecha_hora: "", cliente_id: "", jornada: "" });
@@ -742,21 +600,21 @@ export default function SuperAdmin() {
 
   async function handleMoveMatchToToday(partidoId: string) {
     const todayIso = new Date().toISOString();
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update({ fecha_hora: todayIso })
       .eq("id", partidoId);
 
     if (error) {
-      alert("Error al mover el partido a hoy: " + error.message);
+      toast.error("Error al mover el partido a hoy: " + error.message);
     } else {
-      alert("¡Partido movido al día de hoy! Ya debería aparecer en tu widget.");
+      toast.success("¡Partido movido al día de hoy! Ya debería aparecer en tu widget.");
       fetchData();
     }
   }
 
   async function handleUpdateJornada(partidoId: string, jornadaVal: string) {
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update({ jornada: jornadaVal === "" ? null : jornadaVal })
       .eq("id", partidoId);
@@ -770,7 +628,7 @@ export default function SuperAdmin() {
 
   async function handleUpdateFechaHora(partidoId: string, fechaHoraVal: string) {
     const isoVal = fechaHoraVal ? new Date(fechaHoraVal).toISOString() : null;
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .update({ fecha_hora: isoVal })
       .eq("id", partidoId);
@@ -787,13 +645,13 @@ export default function SuperAdmin() {
       return;
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("partidos")
       .delete()
       .eq("id", partidoId);
 
     if (error) {
-      alert("Error al borrar el partido: " + error.message);
+      toast.error("Error al borrar el partido: " + error.message);
     } else {
       setPartidos(partidos.filter(p => p.id !== partidoId));
     }
@@ -804,13 +662,13 @@ export default function SuperAdmin() {
       const res = await fetch(`/api/sync/match?api_partido_id=${apiPartidoId}`);
       const data = await res.json();
       if (data.success) {
-        alert(`¡Sincronización exitosa! Marcador API: ${data.partido.goles_local} - ${data.partido.goles_visitante} (${data.partido.estado_partido})`);
+        toast.success(`¡Sincronización exitosa! Marcador API: ${data.partido.goles_local} - ${data.partido.goles_visitante} (${data.partido.estado_partido})`);
         fetchData();
       } else {
-        alert("Error al sincronizar partido: " + (data.error || "Error desconocido"));
+        toast.error("Error al sincronizar partido: " + (data.error || "Error desconocido"));
       }
     } catch (err: any) {
-      alert("Error de red al sincronizar: " + err.message);
+      toast.error("Error de red al sincronizar: " + err.message);
     }
   }
 
@@ -825,15 +683,20 @@ export default function SuperAdmin() {
             </h1>
             <p className="text-xs text-zinc-400 mt-1">Panel de control de clientes, ligas y fixtures</p>
           </div>
-          <Link href="/" className="text-xs text-zinc-400 hover:text-[#ff7900] border border-zinc-800 hover:border-[#ff7900]/30 px-4 py-2 rounded-xl bg-[#09090b] transition-all">
-            ← Volver al Inicio
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/" className="text-xs text-zinc-400 hover:text-[#ff7900] border border-zinc-800 hover:border-[#ff7900]/30 px-4 py-2 rounded-xl bg-[#09090b] transition-all">
+              ← Volver al Inicio
+            </Link>
+            <button onClick={logout} className="text-xs text-zinc-400 hover:text-red-400 border border-zinc-800 hover:border-red-500/30 px-4 py-2 rounded-xl bg-[#09090b] transition-all">
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 mt-8">
         {/* Tabs */}
-        <div className="flex border-b border-[#27272a] mb-8 gap-4">
+        <div className="flex border-b border-[#27272a] mb-8 gap-4 overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setActiveTab("clientes")}
             className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
@@ -872,7 +735,17 @@ export default function SuperAdmin() {
                 : "border-transparent text-zinc-400 hover:text-white"
             }`}
           >
-            📦 Código para Vorks (iFrame & Widget)
+            📦 Código para insertar
+          </button>
+          <button
+            onClick={() => setActiveTab("metricas")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === "metricas"
+                ? "border-[#ff7900] text-[#ff7900]"
+                : "border-transparent text-zinc-400 hover:text-white"
+            }`}
+          >
+            📈 Métricas
           </button>
           <button
             onClick={() => setActiveTab("noticias")}
@@ -943,10 +816,13 @@ export default function SuperAdmin() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-400 mb-2">Clave / PIN Periodista (Acceso CMS)</label>
+                      <label className="block text-xs font-semibold text-zinc-400 mb-2">Clave Periodista (Acceso CMS, mínimo 6 caracteres)</label>
                       <input
                         type="text"
-                        placeholder="Ej. 123456"
+                        autoComplete="off"
+                        minLength={6}
+                        required
+                        placeholder="Anotala: no se vuelve a mostrar"
                         value={newCliente.clave_periodista}
                         onChange={e => setNewCliente({ ...newCliente, clave_periodista: e.target.value })}
                         className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#ff7900]/50 transition-colors"
@@ -984,7 +860,7 @@ export default function SuperAdmin() {
                             <div className="flex flex-wrap gap-2 text-xs mt-2 text-zinc-400">
                               <span>Ciudad: <strong className="text-white">{cliente.ciudad || "No especificada"}</strong></span>
                               <span className="text-zinc-600">•</span>
-                              <span>PIN Acceso: <strong className="text-[#ff7900]">{cliente.clave_periodista}</strong></span>
+                              <span>Clave CMS: <strong className={cliente.tiene_clave ? "text-green-400" : "text-red-400"}>{cliente.tiene_clave ? "Configurada ✓" : "Sin clave"}</strong></span>
                             </div>
                             <div className="mt-3 bg-[#09090b] border border-[#27272a] p-3 rounded-xl">
                               <span className="text-[10px] text-zinc-500 block font-semibold mb-1">ID CLIENTE (WIDGET CODE):</span>
@@ -1052,13 +928,14 @@ export default function SuperAdmin() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Clave / PIN Acceso</label>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Nueva clave (dejar vacío para no cambiarla)</label>
                                 <input
                                   type="text"
-                                  value={editingCliente.clave_periodista}
+                                  autoComplete="off"
+                                  placeholder="Mínimo 6 caracteres"
+                                  value={editingCliente.clave_periodista || ""}
                                   onChange={e => setEditingCliente({ ...editingCliente, clave_periodista: e.target.value })}
                                   className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#ff7900]/50"
-                                  required
                                 />
                               </div>
                             </div>
@@ -1252,6 +1129,19 @@ export default function SuperAdmin() {
                                   <option value="serif">Diario Tradicional / Prensa (Serif Classic)</option>
                                 </select>
                               </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-zinc-400 mb-2">Tema</label>
+                                <select
+                                  value={configTema}
+                                  onChange={e => setConfigTema(e.target.value as Tema)}
+                                  className="w-full bg-[#121214] border border-[#27272a] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none font-semibold"
+                                >
+                                  <option value="oscuro">🌙 Oscuro (usa los colores de arriba)</option>
+                                  <option value="claro">☀️ Claro (fondo blanco, para sitios claros)</option>
+                                  <option value="auto">🌓 Automático (según el dispositivo del lector)</option>
+                                </select>
+                              </div>
                             </div>
 
                             <div>
@@ -1284,6 +1174,45 @@ export default function SuperAdmin() {
                               />
                             </div>
 
+                            <div className="bg-[#121214] border border-[#27272a] rounded-xl p-3 space-y-3">
+                              <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={configMostrarProde}
+                                  onChange={e => setConfigMostrarProde(e.target.checked)}
+                                  className="accent-[#ff7900]"
+                                />
+                                🏆 Mostrar banner del Prode en el widget
+                              </label>
+                              <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={configMostrarPosiciones}
+                                  onChange={e => setConfigMostrarPosiciones(e.target.checked)}
+                                  className="accent-[#ff7900]"
+                                />
+                                📊 Pestaña de Posiciones (Liga Necochea)
+                              </label>
+                              <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={configMostrarGoleadores}
+                                  onChange={e => setConfigMostrarGoleadores(e.target.checked)}
+                                  className="accent-[#ff7900]"
+                                />
+                                ⚽ Pestaña de Goleadores (Liga Necochea)
+                              </label>
+                              {configMostrarProde && (
+                                <input
+                                  type="url"
+                                  placeholder="URL de la página del Prode en el sitio del medio (https://...)"
+                                  value={configProdeUrl}
+                                  onChange={e => setConfigProdeUrl(e.target.value)}
+                                  className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none placeholder:text-zinc-600"
+                                />
+                              )}
+                            </div>
+
                             {/* Previsualización en Tiempo Real del Widget */}
                             <div className="border-t border-[#27272a] pt-4 mt-2 space-y-2">
                               <div className="flex justify-between items-center">
@@ -1295,8 +1224,13 @@ export default function SuperAdmin() {
                               </p>
                               <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 shadow-inner">
                                 <futbol-widget
+                                  preview=""
                                   client-id={cliente.id}
                                   client-name={cliente.nombre_medio}
+                                  theme={configTema}
+                                  tabs={["partidos", configMostrarPosiciones && "posiciones", configMostrarGoleadores && "goleadores"].filter(Boolean).join(",")}
+                                  logo-url={configLogoUrl}
+                                  sponsor-url={configSponsorUrl}
                                   primary-color={configColorPrimario}
                                   secondary-color={configColorSecundario}
                                   card-bg-color={configColorFondoTarjeta}
@@ -1658,6 +1592,9 @@ export default function SuperAdmin() {
             {/* --- SECCIÓN PARTIDOS (FIXTURE) --- */}
             {activeTab === "partidos" && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-3">
+                  <FixtureImport ligas={ligas} equipos={equipos} clientes={clientes} partidos={partidos} onImported={fetchData} />
+                </div>
                 {/* Programar Partido */}
                 <div className="bg-[#121214] border border-[#27272a] rounded-2xl p-6 h-fit">
                   <h2 className="text-lg font-bold text-white mb-4">Programar Encuentro</h2>
@@ -1952,491 +1889,13 @@ export default function SuperAdmin() {
 
             {/* TAB INTEGRACIÓN PARA VORKS */}
             {activeTab === "integracion" && (
-              <div className="space-y-6">
-                <div className="bg-[#121214] border border-[#27272a] rounded-2xl p-6 shadow-xl space-y-6">
-                  <div className="flex items-center gap-3 border-b border-[#27272a] pb-4">
-                    <span className="text-3xl">📦</span>
-                    <div>
-                      <h2 className="text-lg font-bold text-white">Código de Integración para Desarrolladores & Periodistas (Vorks)</h2>
-                      <p className="text-xs text-zinc-400">
-                        Copiá estos enlaces e iFrames para pegar los widgets dentro de las notas del diario o incrustar la app del Prode.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* SECCIÓN ESPECIAL: NOTAS PERIODÍSTICAS VORKS */}
-                  <div className="bg-[#09090b] border border-[#ff7900]/30 rounded-2xl p-6 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">📰</span>
-                      <h3 className="text-base font-bold text-white">
-                        Incrustar Widgets en Notas Periodísticas (Vorks / Editor de Noticias)
-                      </h3>
-                    </div>
-                    <p className="text-xs text-zinc-400">
-                      Copiá la <strong>URL directa</strong> o el <strong>código HTML iFrame</strong> para incrustar marcadores, posiciones o goleadores dentro del texto de una nota (igual que cuando pegás un Tweet o un video de YouTube).
-                    </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                      {/* CARD 1: PARTIDOS */}
-                      <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 space-y-3 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              ⚽ Últimos Partidos / En Vivo
-                            </span>
-                            <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded font-bold">
-                              EN VIVO
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-zinc-400">
-                            Widget con los marcadores en tiempo real y fixture de la fecha.
-                          </p>
-                        </div>
-
-                        <div className="space-y-2 pt-2">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText("https://widget-futbol-muove.vercel.app/embed/partidos");
-                              setCopiedKey("url_partidos");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
-                          >
-                            {copiedKey === "url_partidos" ? "✓ ¡Enlace Copiado!" : "🔗 Copiar Enlace Directo (URL)"}
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText('<iframe src="https://widget-futbol-muove.vercel.app/embed/partidos" style="width:100%; height:460px; border:none; border-radius:12px;" allow="clipboard-write"></iframe>');
-                              setCopiedKey("iframe_partidos");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            className="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
-                          >
-                            {copiedKey === "iframe_partidos" ? "✓ ¡iFrame Copiado!" : "📋 Copiar iFrame HTML"}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* CARD 2: POSICIONES */}
-                      <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 space-y-3 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              📊 Tabla de Posiciones
-                            </span>
-                            <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded font-bold">
-                              ZONA A & B
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-zinc-400">
-                            Tabla de posiciones interactiva con puntos, goles y diferencia.
-                          </p>
-                        </div>
-
-                        <div className="space-y-2 pt-2">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText("https://widget-futbol-muove.vercel.app/embed/posiciones");
-                              setCopiedKey("url_posiciones");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
-                          >
-                            {copiedKey === "url_posiciones" ? "✓ ¡Enlace Copiado!" : "🔗 Copiar Enlace Directo (URL)"}
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText('<iframe src="https://widget-futbol-muove.vercel.app/embed/posiciones" style="width:100%; height:550px; border:none; border-radius:12px;" allow="clipboard-write"></iframe>');
-                              setCopiedKey("iframe_posiciones");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            className="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
-                          >
-                            {copiedKey === "iframe_posiciones" ? "✓ ¡iFrame Copiado!" : "📋 Copiar iFrame HTML"}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* CARD 3: GOLEADORES */}
-                      <div className="bg-[#121214] border border-[#27272a] rounded-xl p-4 space-y-3 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              👟 Tabla de Goleadores
-                            </span>
-                            <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-bold">
-                              GOLES
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-zinc-400">
-                            Tabla de máximos artilleros del torneo local.
-                          </p>
-                        </div>
-
-                        <div className="space-y-2 pt-2">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText("https://widget-futbol-muove.vercel.app/embed/goleadores");
-                              setCopiedKey("url_goleadores");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
-                          >
-                            {copiedKey === "url_goleadores" ? "✓ ¡Enlace Copiado!" : "🔗 Copiar Enlace Directo (URL)"}
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText('<iframe src="https://widget-futbol-muove.vercel.app/embed/goleadores" style="width:100%; height:500px; border:none; border-radius:12px;" allow="clipboard-write"></iframe>');
-                              setCopiedKey("iframe_goleadores");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            className="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold text-xs py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5"
-                          >
-                            {copiedKey === "iframe_goleadores" ? "✓ ¡iFrame Copiado!" : "📋 Copiar iFrame HTML"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6 pt-4">
-                    {/* Opción 1: iFrame Prode */}
-                    <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-5 space-y-3">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div>
-                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                            <span>1️⃣</span> Incrustar Aplicación del Prode Completa (iFrame)
-                          </h3>
-                          <p className="text-xs text-zinc-400">
-                            Recomendado para Vorks. Crea una página propia en Data eNe (ej. /prode) y pega este código HTML.
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText("https://widget-futbol-muove.vercel.app/prode");
-                              setCopiedKey("url_prode");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            className="bg-[#18181b] hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold text-xs px-3 py-2 rounded-lg transition-all"
-                          >
-                            {copiedKey === "url_prode" ? "✓ ¡URL Copiada!" : "🔗 Copiar URL Prode"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText('<iframe src="https://widget-futbol-muove.vercel.app/prode" style="width:100%; height:1100px; border:none;" allow="clipboard-write"></iframe>');
-                              setCopiedKey("iframe");
-                              setTimeout(() => setCopiedKey(null), 2000);
-                            }}
-                            className="bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs px-4 py-2 rounded-lg transition-all"
-                          >
-                            {copiedKey === "iframe" ? "✓ ¡Copiado!" : "📋 Copiar iFrame Prode"}
-                          </button>
-                        </div>
-                      </div>
-
-                      <pre className="bg-[#18181b] text-emerald-400 p-4 rounded-lg text-xs overflow-x-auto border border-zinc-800 font-mono">
-{`<iframe 
-  src="https://widget-futbol-muove.vercel.app/prode" 
-  style="width:100%; height:1100px; border:none;" 
-  allow="clipboard-write">
-</iframe>`}
-                      </pre>
-                    </div>
-
-                    {/* Opción 2: Widget flotante JS */}
-                    <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-5 space-y-3">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div>
-                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                            <span>2️⃣</span> Widget Flotante de Partidos (Script JS)
-                          </h3>
-                          <p className="text-xs text-zinc-400">
-                            Pega este script en cualquier sección del sitio para desplegar el widget lateral de partidos.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`<futbol-widget client-id="cc683950-7147-4638-b31f-a6810fcd73c0"></futbol-widget>\n<script src="https://widget-futbol-muove.vercel.app/widget.js"></script>`);
-                            setCopiedKey("widget");
-                            setTimeout(() => setCopiedKey(null), 2000);
-                          }}
-                          className="bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold text-xs px-4 py-2 rounded-lg transition-all"
-                        >
-                          {copiedKey === "widget" ? "✓ ¡Copiado!" : "📋 Copiar Widget JS"}
-                        </button>
-                      </div>
-
-                      <pre className="bg-[#18181b] text-amber-400 p-4 rounded-lg text-xs overflow-x-auto border border-zinc-800 font-mono">
-{`<futbol-widget client-id="cc683950-7147-4638-b31f-a6810fcd73c0"></futbol-widget>
-<script src="https://widget-futbol-muove.vercel.app/widget.js"></script>`}
-                      </pre>
-                    </div>
-
-                    {/* Opción 3: Endpoints API REST */}
-                    <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-5 space-y-3">
-                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                        <span>3️⃣</span> Endpoints de APIs REST (JSON)
-                      </h3>
-                      <p className="text-xs text-zinc-400">
-                        Si Vorks prefiere consumir los datos puros desde su propio backend o frontend.
-                      </p>
-
-                      <div className="space-y-2 text-xs font-mono">
-                        <div className="flex items-center justify-between bg-[#18181b] p-3 rounded-lg border border-zinc-800">
-                          <div>
-                            <span className="text-blue-400 font-bold mr-2">GET</span>
-                            <span className="text-zinc-300">https://widget-futbol-muove.vercel.app/api/goleadores</span>
-                          </div>
-                          <span className="text-[10px] text-zinc-500 font-sans">Tabla de Goleadores</span>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-[#18181b] p-3 rounded-lg border border-zinc-800">
-                          <div>
-                            <span className="text-blue-400 font-bold mr-2">GET</span>
-                            <span className="text-zinc-300">https://widget-futbol-muove.vercel.app/api/prode/standings</span>
-                          </div>
-                          <span className="text-[10px] text-zinc-500 font-sans">Tablas de Posiciones Zona A/B</span>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-[#18181b] p-3 rounded-lg border border-zinc-800">
-                          <div>
-                            <span className="text-blue-400 font-bold mr-2">GET</span>
-                            <span className="text-zinc-300">https://widget-futbol-muove.vercel.app/api/prode/leaderboard</span>
-                          </div>
-                          <span className="text-[10px] text-zinc-500 font-sans">Ranking General de Usuarios Prode</span>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-[#18181b] p-3 rounded-lg border border-zinc-800">
-                          <div>
-                            <span className="text-blue-400 font-bold mr-2">GET</span>
-                            <span className="text-zinc-300">https://widget-futbol-muove.vercel.app/api/news</span>
-                          </div>
-                          <span className="text-[10px] text-zinc-500 font-sans">Noticias Activas del Carrusel</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <IntegracionPanel clientes={clientes} ligas={ligas} suscripciones={suscripciones} />
             )}
 
-            {/* TAB NOTICIAS / CARRUSEL */}
-            {activeTab === "noticias" && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Formulario de extracción de URL */}
-                <div className="bg-[#121214] border border-[#27272a] rounded-2xl p-6 h-fit space-y-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">🔗</span>
-                    <div>
-                      <h2 className="text-lg font-bold text-white">Subir Noticia vía URL</h2>
-                      <p className="text-xs text-zinc-400">Pegá el link de cualquier diario de Necochea</p>
-                    </div>
-                  </div>
+            {activeTab === "noticias" && <NoticiasPanel />}
 
-                  <form onSubmit={handleExtractNews} className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-400 mb-2">
-                        URL de la Noticia
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://ecosdiarios.com/nota-ejemplo..."
-                        value={newsUrlInput}
-                        onChange={(e) => setNewsUrlInput(e.target.value)}
-                        className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#ff7900]/50 transition-colors"
-                        required
-                      />
-                    </div>
+            {activeTab === "metricas" && <MetricasPanel clientes={clientes} />}
 
-                    <button
-                      type="submit"
-                      disabled={extractingNews}
-                      className="w-full bg-[#ff7900] hover:bg-[#e06b00] text-black font-extrabold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {extractingNews ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
-                          <span>Extrayendo noticia...</span>
-                        </>
-                      ) : (
-                        <span>🔍 Extraer Metadatos (Imagen y Título)</span>
-                      )}
-                    </button>
-                  </form>
-
-                  {newsMsg && (
-                    <div
-                      className={`p-3 rounded-xl text-xs font-bold text-center border ${
-                        newsMsg.type === "success"
-                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                          : "bg-rose-500/10 border-rose-500/30 text-rose-400"
-                      }`}
-                    >
-                      {newsMsg.text}
-                    </div>
-                  )}
-
-                  {/* Previsualización antes de publicar */}
-                  {extractedPreview && (
-                    <div className="bg-[#09090b] border border-[#ff7900]/40 rounded-xl p-4 space-y-3 mt-4">
-                      <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                        <span className="text-xs font-bold text-[#ff7900]">✨ Previsualización Extraída</span>
-                        <span className="text-[10px] bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded font-mono">
-                          {extractedPreview.siteName}
-                        </span>
-                      </div>
-
-                      <div className="h-32 rounded-lg overflow-hidden border border-zinc-800 relative">
-                        <img
-                          src={extractedPreview.image}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-zinc-400 mb-1">Título de la Nota</label>
-                        <input
-                          type="text"
-                          value={extractedPreview.title}
-                          onChange={(e) => setExtractedPreview({ ...extractedPreview, title: e.target.value })}
-                          className="w-full bg-[#18181b] border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-bold"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-zinc-400 mb-1">Resumen / Copete</label>
-                        <textarea
-                          rows={2}
-                          value={extractedPreview.description}
-                          onChange={(e) => setExtractedPreview({ ...extractedPreview, description: e.target.value })}
-                          className="w-full bg-[#18181b] border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-300"
-                        />
-                      </div>
-
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={handleSaveExtractedNews}
-                          className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-2.5 rounded-lg transition-all"
-                        >
-                          🚀 Publicar en Carrusel
-                        </button>
-                        <button
-                          onClick={() => setExtractedPreview(null)}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs px-3 py-2.5 rounded-lg"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Listado de Noticias en el Carrusel */}
-                <div className="lg:col-span-2 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-white">Noticias en el Carrusel ({newsList.length})</h2>
-                    <span className="text-xs text-zinc-400">
-                      {newsList.filter((n) => n.active).length} Activas
-                    </span>
-                  </div>
-
-                  {newsList.length === 0 ? (
-                    <div className="bg-[#121214] border border-[#27272a] rounded-2xl p-8 text-center text-zinc-500 text-sm">
-                      No hay noticias publicadas en el carrusel aún. Pega una URL a la izquierda para empezar.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {newsList.map((item, index) => (
-                        <div
-                          key={item.id}
-                          className={`bg-[#121214] border rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 transition-all ${
-                            item.active ? "border-[#27272a] hover:border-zinc-700" : "border-zinc-800 opacity-60 bg-zinc-950"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 w-full md:w-auto flex-1">
-                            {/* Botones de Reordenar ▲ / ▼ */}
-                            <div className="flex flex-col gap-1 shrink-0">
-                              <button
-                                disabled={index === 0}
-                                onClick={() => handleMoveNews(index, "up")}
-                                className="w-6 h-6 rounded bg-[#18181b] border border-zinc-700 hover:border-[#ff7900] hover:text-[#ff7900] disabled:opacity-25 text-[10px] font-black flex items-center justify-center transition-all"
-                                title="Subir orden"
-                              >
-                                ▲
-                              </button>
-                              <button
-                                disabled={index === newsList.length - 1}
-                                onClick={() => handleMoveNews(index, "down")}
-                                className="w-6 h-6 rounded bg-[#18181b] border border-zinc-700 hover:border-[#ff7900] hover:text-[#ff7900] disabled:opacity-25 text-[10px] font-black flex items-center justify-center transition-all"
-                                title="Bajar orden"
-                              >
-                                ▼
-                              </button>
-                            </div>
-
-                            {/* Badge Posición */}
-                            <span className="w-6 text-center text-xs font-black text-[#ff7900] bg-[#ff7900]/10 py-1 rounded-md border border-[#ff7900]/20 shrink-0">
-                              #{index + 1}
-                            </span>
-
-                            <img
-                              src={item.image}
-                              alt=""
-                              className="w-20 h-16 rounded-lg object-cover border border-zinc-800 shrink-0 ml-1"
-                            />
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="bg-[#ff7900]/20 text-[#ff7900] text-[10px] font-extrabold px-2 py-0.5 rounded">
-                                  {item.siteName}
-                                </span>
-                                <span className="text-[10px] text-zinc-500">
-                                  {new Date(item.createdAt).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <h3 className="text-sm font-bold text-white line-clamp-1">{item.title}</h3>
-                              <a
-                                href={item.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[11px] text-zinc-400 hover:text-[#ff7900] underline line-clamp-1"
-                              >
-                                {item.url}
-                              </a>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => handleToggleNews(item.id)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold border transition-all ${
-                                item.active
-                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-                                  : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700"
-                              }`}
-                            >
-                              {item.active ? "✓ Activa" : "👁 Oculta"}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteNews(item.id)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition-all"
-                            >
-                              🗑 Eliminar
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB PARTICIPANTES PRODE & REMISIÓN */}
             {activeTab === "prode_participantes" && (
               <ProdeParticipantsManager isSuperAdmin={true} clientesList={clientes} />
             )}
