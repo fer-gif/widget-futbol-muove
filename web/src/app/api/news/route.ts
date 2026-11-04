@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth";
 import fs from "fs";
 import path from "path";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-server";
 
 export interface NewsItem {
   id: string;
@@ -118,46 +119,21 @@ async function saveSupabaseNews(newsList: NewsItem[]) {
     }
   } catch (e) {}
 
-  // 2. Guardar en respaldo permanente 'configuracion_widgets' usando un cliente_id válido
+  // 2. Respaldo heredado en 'configuracion_widgets' (fila NOTICIAS_STORE): solo se
+  //    actualiza si ya existe. Ya no se crean clientes falsos para alojarlo.
   try {
-    let clienteId: string | null = null;
-    const { data: cData } = await supabase.from("clientes").select("id").limit(1).maybeSingle();
-    if (cData && cData.id) {
-      clienteId = cData.id;
-    }
+    const { data: existing } = await supabase
+      .from("configuracion_widgets")
+      .select("id")
+      .eq("color_primario", "NOTICIAS_STORE")
+      .maybeSingle();
 
-    if (!clienteId) {
-      // Si aún no hay clientes en la base de datos, creamos uno principal de respaldo
-      const { data: newC } = await supabase
-        .from("clientes")
-        .insert([{ nombre_medio: "Sistema DataeNe", email: "sistema@dataene.com", clave_periodista: "123456" }])
-        .select()
-        .single();
-      if (newC) clienteId = newC.id;
-    }
-
-    if (clienteId) {
-      const payload = {
-        cliente_id: clienteId,
-        color_primario: "NOTICIAS_STORE",
-        color_secundario: "#000000",
-        logo_medio_url: JSON.stringify(newsList),
-        mostrar_escudos: true,
-      };
-
-      const { data: existing } = await supabase
+    if (existing) {
+      const { error: errUpd } = await supabase
         .from("configuracion_widgets")
-        .select("id")
-        .eq("color_primario", "NOTICIAS_STORE")
-        .maybeSingle();
-
-      if (existing) {
-        const { error: errUpd } = await supabase.from("configuracion_widgets").update(payload).eq("id", existing.id);
-        if (errUpd) console.error("Error al actualizar noticias en Supabase:", errUpd.message);
-      } else {
-        const { error: errIns } = await supabase.from("configuracion_widgets").insert([payload]);
-        if (errIns) console.error("Error al insertar noticias en Supabase:", errIns.message);
-      }
+        .update({ logo_medio_url: JSON.stringify(newsList) })
+        .eq("id", existing.id);
+      if (errUpd) console.error("Error al actualizar noticias en Supabase:", errUpd.message);
     }
   } catch (e) {
     console.error("Error guardando noticias en Supabase:", e);
@@ -201,6 +177,9 @@ export async function GET(req: Request) {
 
 // POST: Crear, alternar, reordenar o eliminar noticias
 export async function POST(req: Request) {
+  const auth = await requireRole(["superadmin"]);
+  if (auth.error) return auth.error;
+
   try {
     const body = await req.json();
     const { action, id, url, title, image, description, siteName, active, newsList: inputNewsList } = body;

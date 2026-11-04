@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-server";
+import { PRODE_SESSION_EXPIRED, verifyProdeToken } from "@/lib/auth";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -67,13 +68,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, clientId, participanteId, nombreGrupo, codigoInvitacion } = body;
+    const { action, clientId, participanteId, nombreGrupo, codigoInvitacion, token } = body;
 
     if (!participanteId) {
       return NextResponse.json(
         { success: false, error: "participanteId es requerido" },
         { status: 400, headers }
       );
+    }
+    if (!verifyProdeToken(token, participanteId)) {
+      return NextResponse.json({ success: false, error: PRODE_SESSION_EXPIRED }, { status: 401, headers });
     }
 
     // 1. Crear Liga Privada de Amigos

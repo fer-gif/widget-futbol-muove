@@ -1,7 +1,7 @@
 "use client";
 
+import { toast } from "@/components/Toaster";
 import { useEffect, useState, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
 
 type Participante = {
   id: string;
@@ -85,36 +85,7 @@ export default function ProdeParticipantsManager({
       if (data.success) {
         setParticipantes(data.participantes || []);
       } else {
-        // Fallback a consulta direct supabase si la API no estuviera disponible
-        let query = supabase
-          .from("prode_participantes")
-          .select(
-            "id, nombre, email, puntos_totales, racha_actual, cliente_id, created_at, clientes(nombre_medio)"
-          );
-
-        if (selectedClientId && selectedClientId !== "todos") {
-          query = query.eq("cliente_id", selectedClientId);
-        }
-
-        const { data: directData, error: directErr } = await query.order(
-          "created_at",
-          { ascending: false }
-        );
-
-        if (directErr) throw directErr;
-
-        const formatted = (directData || []).map((p: any) => ({
-          id: p.id,
-          nombre: p.nombre,
-          email: p.email,
-          puntos_totales: p.puntos_totales || 0,
-          racha_actual: p.racha_actual || 0,
-          cliente_id: p.cliente_id,
-          nombre_medio: p.clientes?.nombre_medio || "General / Muove",
-          created_at: p.created_at,
-          total_pronosticos: 0,
-        }));
-        setParticipantes(formatted);
+        throw new Error(data.error || "No se pudo cargar la lista de participantes");
       }
     } catch (err: any) {
       console.error("Error al cargar participantes:", err);
@@ -301,6 +272,30 @@ export default function ProdeParticipantsManager({
     showToast("📥 Archivo CSV descargado correctamente.");
   }
 
+  async function handleResetPin(p: Participante) {
+    const pin = window.prompt(`Nuevo PIN de 4 dígitos para ${p.nombre} (${p.email}):`);
+    if (pin === null) return;
+    if (!/^\d{4}$/.test(pin.trim())) {
+      toast.error("El PIN debe tener exactamente 4 números.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/prode/participants", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: p.id, pin: pin.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`🔑 PIN actualizado. Avisale a ${p.nombre} su nuevo PIN.`);
+      } else {
+        toast.error("Error al cambiar el PIN: " + data.error);
+      }
+    } catch (err: any) {
+      toast.error("Error de conexión: " + err.message);
+    }
+  }
+
   async function handleDeleteParticipant(id: string) {
     try {
       const res = await fetch(`/api/prode/participants?id=${id}`, {
@@ -311,10 +306,10 @@ export default function ProdeParticipantsManager({
         setParticipantes((prev) => prev.filter((p) => p.id !== id));
         showToast("🗑️ Participante eliminado con éxito.");
       } else {
-        alert("Error al eliminar: " + data.error);
+        toast.error("Error al eliminar: " + data.error);
       }
     } catch (err: any) {
-      alert("Error de conexión: " + err.message);
+      toast.error("Error de conexión: " + err.message);
     } finally {
       setDeleteCandidate(null);
     }
@@ -804,6 +799,15 @@ export default function ProdeParticipantsManager({
                         >
                           ✉️
                         </a>
+
+                        {/* Resetear PIN */}
+                        <button
+                          onClick={() => handleResetPin(p)}
+                          className="bg-[#09090b] hover:bg-[#ff7900] hover:text-black text-zinc-400 border border-[#27272a] p-1.5 rounded-lg transition-all text-xs"
+                          title="Asignar nuevo PIN"
+                        >
+                          🔑
+                        </button>
 
                         {/* Eliminar Participante */}
                         <button

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { requireRole } from "@/lib/auth";
+import { supabase } from "@/lib/supabase-server";
 
 export async function GET(request: NextRequest) {
   return handleSyncMatch(request);
@@ -10,6 +11,9 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleSyncMatch(request: NextRequest) {
+  const auth = await requireRole(["superadmin", "periodista"]);
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(request.url);
   const apiPartidoIdStr = searchParams.get("api_partido_id");
 

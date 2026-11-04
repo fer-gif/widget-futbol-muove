@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-server";
+import { PRODE_SESSION_EXPIRED, verifyProdeToken } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { participanteId, predictions } = body; 
+    const { participanteId, predictions, token } = body; 
     // predictions: Array de { partidoId: string, golesLocal: number, golesVisitante: number }
 
     if (!participanteId || !Array.isArray(predictions) || predictions.length === 0) {
@@ -89,6 +90,10 @@ export async function POST(request: NextRequest) {
         { success: false, error: "Faltan participanteId o la lista de pronósticos" },
         { status: 400, headers }
       );
+    }
+
+    if (!verifyProdeToken(token, participanteId)) {
+      return NextResponse.json({ success: false, error: PRODE_SESSION_EXPIRED }, { status: 401, headers });
     }
 
     // 1. Validar que el participante exista

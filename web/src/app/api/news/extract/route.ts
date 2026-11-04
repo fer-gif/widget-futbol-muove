@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth";
 
 export async function POST(req: Request) {
+  const auth = await requireRole(["superadmin"]);
+  if (auth.error) return auth.error;
+
   try {
     const { url } = await req.json();
 

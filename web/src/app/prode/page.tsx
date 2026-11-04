@@ -25,6 +25,7 @@ type User = {
   puntos_totales: number;
   racha_actual: number;
   cliente_id: string;
+  token?: string; // firmado por el servidor; prueba que la cuenta es tuya
 };
 
 type League = {
@@ -288,7 +289,7 @@ export default function ProdeDataeNePage() {
         setUser(JSON.parse(storedUser));
       }
 
-      const res = await fetch(`/api/widget?client-id=${cid}`);
+      const res = await fetch(`/api/widget?client-id=${cid}&range=all`);
       const data = await res.json();
       if (data && data.partidos) {
         setPartidos(data.partidos);
@@ -426,11 +427,17 @@ export default function ProdeDataeNePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           participanteId: targetUser.id,
+          token: targetUser.token,
           predictions: predictionsList,
         }),
       });
 
       const data = await res.json();
+      if (res.status === 401) {
+        handleProdeSessionExpired(data.error);
+        setIsPendingSave(true);
+        return;
+      }
       if (res.ok && data.success) {
         setSavedPredictions((prev) => ({ ...prev, ...predictions }));
         setProdeMsg({ type: "success", text: "¡Tus pronósticos se guardaron correctamente en DataeNe!" });
@@ -440,6 +447,17 @@ export default function ProdeDataeNePage() {
     } catch (e) {
       setProdeMsg({ type: "error", text: "Error de red al conectar con el servidor." });
     }
+  }
+
+  /** La cuenta guardada no tiene un token válido: pedir que vuelva a ingresar. */
+  function handleProdeSessionExpired(message?: string) {
+    setUser(null);
+    try {
+      localStorage.removeItem(`prode_user_${clientId || "demo"}`);
+    } catch (e) {}
+    setAuthMode("login");
+    setAuthError(message || "Volvé a ingresar con tu email y PIN.");
+    setShowAuthModal(true);
   }
 
   async function handleSavePredictions() {
@@ -520,10 +538,15 @@ export default function ProdeDataeNePage() {
           action: "create",
           clientId,
           participanteId: user.id,
+          token: user.token,
           nombreGrupo: newGroupName.trim(),
         }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        setShowCreateConfirmModal(false);
+        return handleProdeSessionExpired(data.error);
+      }
       if (res.ok && data.success) {
         await fetchMyLeagues();
         setLastCreatedLeague({
@@ -559,10 +582,12 @@ export default function ProdeDataeNePage() {
         body: JSON.stringify({
           action: "join",
           participanteId: user.id,
+          token: user.token,
           codigoInvitacion: joinCode.trim(),
         }),
       });
       const data = await res.json();
+      if (res.status === 401) return handleProdeSessionExpired(data.error);
       if (res.ok && data.success) {
         await fetchMyLeagues();
         setActiveLeagueId(data.liga.id);

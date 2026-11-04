@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { requireRole } from "@/lib/auth";
+import { supabase } from '@/lib/supabase-server';
 
 export async function GET() {
+  const auth = await requireRole(["superadmin"]);
+  if (auth.error) return auth.error;
+
   try {
     // Intentamos consultar la tabla 'clientes' para verificar si está creada
     const { data, error } = await supabase.from('clientes').select('*').limit(1);

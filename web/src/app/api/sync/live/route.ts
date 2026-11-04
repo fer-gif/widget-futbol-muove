@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { requireRole } from "@/lib/auth";
+import { supabase } from "@/lib/supabase-server";
 
 export async function GET(request: NextRequest) {
   return handleSyncLive(request);
@@ -10,6 +11,14 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleSyncLive(request: NextRequest) {
+  // Permitido para el super-admin o para un cron con "Authorization: Bearer <CRON_SECRET>".
+  const cronSecret = process.env.CRON_SECRET;
+  const isCron = Boolean(cronSecret) && request.headers.get("authorization") === `Bearer ${cronSecret}`;
+  if (!isCron) {
+    const auth = await requireRole(["superadmin"]);
+    if (auth.error) return auth.error;
+  }
+
   const apiKey = process.env.API_FOOTBALL_KEY;
   if (!apiKey) {
     return NextResponse.json(
