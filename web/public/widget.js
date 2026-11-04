@@ -35,6 +35,12 @@
       .replace(/'/g, "&#39;");
   }
 
+  /** Crédito a la fuente de las tablas (solo fuentes conocidas). */
+  function sourceNote(fuente) {
+    if (fuente !== "ahorafutbol.ar") return "";
+    return '<p class="source">Datos: <a href="https://www.ahorafutbol.ar/" target="_blank" rel="noopener noreferrer">ahorafutbol.ar</a></p>';
+  }
+
   function safeUrl(value) {
     if (!value) return "";
     try {
@@ -334,8 +340,8 @@
         if (!res.ok || !data.success) throw new Error("sin datos");
         this.state[key] =
           kind === "posiciones"
-            ? { nombre: data.ligaNombre || "", A: data.zonaA || [], B: data.zonaB || [] }
-            : { lista: data.goleadores || [] };
+            ? { nombre: data.ligaNombre || "", A: data.zonaA || [], B: data.zonaB || [], fuente: data.fuente || "" }
+            : { lista: data.goleadores || [], fuente: data.fuente || "" };
       } catch (e) {
         this.state[key] = { error: true };
       }
@@ -798,7 +804,7 @@
         '<div class="table-scroll"><table><thead><tr><th class="pos">#</th><th class="team-cell">Equipo</th>' +
         '<th title="Partidos jugados">PJ</th><th class="hide-sm" title="Ganados">G</th><th class="hide-sm" title="Empatados">E</th>' +
         '<th class="hide-sm" title="Perdidos">P</th><th title="Diferencia de gol">DG</th><th class="pts">Pts</th></tr></thead>' +
-        "<tbody>" + rows + "</tbody></table></div>";
+        "<tbody>" + rows + "</tbody></table></div>" + sourceNote(st.fuente);
     }
 
     renderScorers() {
@@ -828,7 +834,7 @@
             '<span class="goals">' + esc(g.goles) + "<small> goles</small></span></li>"
           );
         }).join("") +
-        "</ol>";
+        "</ol>" + sourceNote(sc.fuente);
     }
 
     // -------------------------------------------------------------------------
@@ -1025,6 +1031,8 @@
         ".prode span{color:var(--muted);font-size:11px;font-weight:700}",
         ".prode a{color:var(--accent);font-size:11.5px;font-weight:800;text-decoration:none;display:inline-flex;gap:6px;transition:transform .2s}",
         ".prode a:hover{transform:translateX(3px)}",
+        ".source{margin:0;padding:4px 16px 10px;font-size:10px;color:var(--muted);text-align:right}",
+        ".source a{color:inherit}",
         ".credits{display:flex;justify-content:flex-end;padding:8px 16px;border-top:1px solid var(--line)}",
         ".credits a{display:flex;align-items:center;gap:6px;text-decoration:none;opacity:.7}",
         ".credits span{color:var(--muted);font-size:8px;font-weight:700}",

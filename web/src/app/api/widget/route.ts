@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { supabase } from "@/lib/supabase-server";
 import { parseWidgetConfig } from "@/lib/widget-config";
 import { matchClock } from "@/lib/match-clock";
+import { sincronizarSiCorresponde } from "@/lib/sync-ahorafutbol";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,9 @@ async function resolveCliente(clientIdParam: string | null): Promise<Cliente | n
 }
 
 export async function GET(request: NextRequest) {
+  // Trae fixture y resultados de ahorafutbol.ar cada 10 min, después de responder.
+  after(sincronizarSiCorresponde);
+
   try {
     const params = request.nextUrl.searchParams;
     const cliente = await resolveCliente(params.get("client-id"));

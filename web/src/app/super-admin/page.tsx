@@ -9,6 +9,7 @@ import ProdeParticipantsManager from "@/components/ProdeParticipantsManager";
 import IntegracionPanel from "./_components/IntegracionPanel";
 import NoticiasPanel from "./_components/NoticiasPanel";
 import FixtureImport from "./_components/FixtureImport";
+import SyncAhorafutbol from "./_components/SyncAhorafutbol";
 import MetricasPanel from "@/components/MetricasPanel";
 
 declare global {
@@ -1592,6 +1593,9 @@ export default function SuperAdmin() {
             {/* --- SECCIÓN PARTIDOS (FIXTURE) --- */}
             {activeTab === "partidos" && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-3">
+                  <SyncAhorafutbol onSynced={fetchData} />
+                </div>
                 <div className="lg:col-span-3">
                   <FixtureImport ligas={ligas} equipos={equipos} clientes={clientes} partidos={partidos} onImported={fetchData} />
                 </div>
