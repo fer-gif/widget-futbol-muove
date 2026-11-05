@@ -67,10 +67,29 @@ export type ResumenSync = {
 const DIA_MS = 864e5;
 const PAUSA_MS = 300;
 const MAX_CONSULTAS = 90;
+// Días que se consultan a la vez (la función de Vercel corta a los 60 s).
+const EN_PARALELO = 4;
 
 // ---------------------------------------------------------------------------
 // Lectura de db/partido.php (un día por consulta)
 // ---------------------------------------------------------------------------
+
+/**
+ * Errores conocidos del sitio, por número de partido. Solo se aplican si el
+ * sitio todavía tiene el dato equivocado (si lo corrigen, no hacen nada).
+ */
+const CORRECCIONES: Record<number, { si: Partial<PartidoSitio>; poner: Partial<PartidoSitio> }> = {
+  // Fecha 14 (23/08): Villa Díaz Vélez 1-0 Defensores de Puerto Quequén. El sitio
+  // pone Defensores J.N.F., que así suma 22 partidos y Puerto Quequén 20.
+  8342: { si: { visitanteId: 16 }, poner: { visitanteId: 15, visitante: "Defensores Puerto Quequén" } },
+};
+
+function corregir(p: PartidoSitio): PartidoSitio {
+  const c = CORRECCIONES[p.id];
+  if (!c) return p;
+  const aplica = Object.entries(c.si).every(([k, v]) => p[k as keyof PartidoSitio] === v);
+  return aplica ? { ...p, ...c.poner } : p;
+}
 
 function entero(v: string | undefined): number | null {
   if (v == null || v.trim() === "") return null;
@@ -100,7 +119,7 @@ export function parsearDia(texto: string): { fecha: string; dias: string[]; part
       const visitanteId = entero(d[4]);
       const m = (d[9] || "").match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
       if (!id || !localId || !visitanteId || !m) continue;
-      partidos.push({
+      partidos.push(corregir({
         id,
         localId,
         local: textoPlano(d[1]),
@@ -112,7 +131,7 @@ export function parsearDia(texto: string): { fecha: string; dias: string[]; part
         fechaHora: `${m[1]}T${m[2]}:00-03:00`,
         estado: entero(d[10]) ?? 0,
         torneo: textoPlano(torneo),
-      });
+      }));
     }
   });
   return { fecha, dias, partidos };
@@ -148,18 +167,26 @@ async function recolectar(ligaExterna: number, modo: "reciente" | "completo") {
   let consultas = 0;
 
   while (pendientes.length && consultas < MAX_CONSULTAS) {
-    const dia = pendientes.shift()!;
-    if (consultados.has(dia)) continue;
-    consultados.add(dia);
+    // Tanda de hasta EN_PARALELO días todavía no consultados.
+    const tanda: string[] = [];
+    while (pendientes.length && tanda.length < EN_PARALELO && consultas + tanda.length < MAX_CONSULTAS) {
+      const dia = pendientes.shift()!;
+      if (consultados.has(dia)) continue;
+      consultados.add(dia);
+      tanda.push(dia);
+    }
+    if (tanda.length === 0) break;
     if (consultas > 0) await pausa(PAUSA_MS);
-    consultas++;
-    const r = await leerDia(ligaExterna, dia);
-    if (r.fecha) consultados.add(r.fecha);
-    for (const p of r.partidos) partidos.set(p.id, p);
-    for (const d of r.dias) {
-      if (d < desde || d > hasta || vistos.has(d)) continue;
-      vistos.add(d);
-      if (!consultados.has(d)) pendientes.push(d);
+    consultas += tanda.length;
+    const respuestas = await Promise.all(tanda.map((dia) => leerDia(ligaExterna, dia)));
+    for (const r of respuestas) {
+      if (r.fecha) consultados.add(r.fecha);
+      for (const p of r.partidos) partidos.set(p.id, p);
+      for (const d of r.dias) {
+        if (d < desde || d > hasta || vistos.has(d)) continue;
+        vistos.add(d);
+        if (!consultados.has(d)) pendientes.push(d);
+      }
     }
   }
   return { partidos: [...partidos.values()], consultas, desde };
@@ -262,6 +289,9 @@ export async function sincronizarPartidos(
     zonas: 0,
   };
   const ahora = Date.now();
+  // Se escriben al final, en tandas, para no hacer una consulta por partido.
+  const nuevos: { fila: Record<string, unknown>; nombre: string }[] = [];
+  const updates: { id: string; cambios: Record<string, unknown>; nombre: string; vincular: boolean }[] = [];
 
   for (const s of partidos.sort((a, b) => a.fechaHora.localeCompare(b.fechaHora))) {
     const nombre = `${s.local} vs ${s.visitante} (${s.fechaHora.slice(0, 10)})`;
@@ -297,20 +327,21 @@ export async function sincronizarPartidos(
         resumen.creados++;
         continue;
       }
-      const { error: errIns } = await supabase.from("partidos").insert({
-        liga_id: liga.ligaId,
-        cliente_id: null,
-        equipo_local_id: local.id,
-        equipo_visitante_id: visitante.id,
-        goles_local: campos.goles_local ?? 0,
-        goles_visitante: campos.goles_visitante ?? 0,
-        estado_partido: campos.estado_partido ?? "programado",
-        fecha_hora: campos.fecha_hora,
-        jornada: campos.jornada,
-        ahorafutbol_id: s.id,
+      nuevos.push({
+        nombre,
+        fila: {
+          liga_id: liga.ligaId,
+          cliente_id: null,
+          equipo_local_id: local.id,
+          equipo_visitante_id: visitante.id,
+          goles_local: campos.goles_local ?? 0,
+          goles_visitante: campos.goles_visitante ?? 0,
+          estado_partido: campos.estado_partido ?? "programado",
+          fecha_hora: campos.fecha_hora,
+          jornada: campos.jornada,
+          ahorafutbol_id: s.id,
+        },
       });
-      if (errIns) resumen.omitidos.push({ partido: nombre, motivo: errIns.message });
-      else resumen.creados++;
       continue;
     }
 
@@ -325,12 +356,40 @@ export async function sincronizarPartidos(
       resumen.sinCambios++;
       continue;
     }
-    const { error: errUpd } = simular
-      ? { error: null }
-      : await supabase.from("partidos").update(cambios).eq("id", nuestro.id);
-    if (errUpd) resumen.omitidos.push({ partido: nombre, motivo: errUpd.message });
-    else if (vincular) resumen.vinculados++;
-    else resumen.actualizados++;
+    if (simular) {
+      if (vincular) resumen.vinculados++;
+      else resumen.actualizados++;
+      continue;
+    }
+    updates.push({ id: nuestro.id, cambios, nombre, vincular });
+  }
+
+  // Altas: de a 100 por consulta. Si una tanda falla, se reintenta de a uno
+  // para saber cuál fue.
+  for (let i = 0; i < nuevos.length; i += 100) {
+    const tanda = nuevos.slice(i, i + 100);
+    const { error: errTanda } = await supabase.from("partidos").insert(tanda.map((n) => n.fila));
+    if (!errTanda) {
+      resumen.creados += tanda.length;
+      continue;
+    }
+    for (const n of tanda) {
+      const { error: errIns } = await supabase.from("partidos").insert(n.fila);
+      if (errIns) resumen.omitidos.push({ partido: n.nombre, motivo: errIns.message });
+      else resumen.creados++;
+    }
+  }
+
+  // Cambios: de a 10 en paralelo.
+  for (let i = 0; i < updates.length; i += 10) {
+    const tanda = updates.slice(i, i + 10);
+    const res = await Promise.all(tanda.map((u) => supabase.from("partidos").update(u.cambios).eq("id", u.id)));
+    res.forEach(({ error: errUpd }, k) => {
+      const u = tanda[k];
+      if (errUpd) resumen.omitidos.push({ partido: u.nombre, motivo: errUpd.message });
+      else if (u.vincular) resumen.vinculados++;
+      else resumen.actualizados++;
+    });
   }
 
   if (modo === "completo") {
