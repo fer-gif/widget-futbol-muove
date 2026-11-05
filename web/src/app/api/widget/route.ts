@@ -134,8 +134,8 @@ export async function GET(request: NextRequest) {
 
     const [{ data: equipos }, { data: ligas }] = await Promise.all([
       equipoIds.length
-        ? supabase.from("equipos").select("id, nombre_equipo, logo_url").in("id", equipoIds)
-        : Promise.resolve({ data: [] as { id: string; nombre_equipo: string; logo_url: string | null }[] }),
+        ? supabase.from("equipos").select("*").in("id", equipoIds) // "*": nombre_corto existe desde la migración 007
+        : Promise.resolve({ data: [] as { id: string; nombre_equipo: string; logo_url: string | null; nombre_corto?: string | null }[] }),
       ligaIdsUsadas.length
         ? supabase.from("ligas").select("id, nombre_liga").in("id", ligaIdsUsadas)
         : Promise.resolve({ data: [] as { id: string; nombre_liga: string }[] }),
@@ -150,6 +150,12 @@ export async function GET(request: NextRequest) {
       if (/^https?:\/\//.test(logoUrl)) return logoUrl;
       return `${appOrigin}${logoUrl.startsWith("/") ? "" : "/"}${logoUrl}`;
     };
+
+    const equipoJson = (e: { nombre_equipo: string; logo_url: string | null; nombre_corto?: string | null } | undefined, porDefecto: string) => ({
+      nombre: e?.nombre_equipo || porDefecto,
+      corto: e?.nombre_corto?.trim() || e?.nombre_equipo || porDefecto,
+      logo: formatLogoUrl(e?.logo_url),
+    });
 
     const resultado = partidos.map((p) => {
       const local = equiposMap.get(p.equipo_local_id);
@@ -175,8 +181,8 @@ export async function GET(request: NextRequest) {
             : null,
         liga_nombre: ligasMap.get(p.liga_id)?.nombre_liga || "Torneo",
         jornada: p.jornada || null,
-        equipo_local: { nombre: local?.nombre_equipo || "Local", logo: formatLogoUrl(local?.logo_url) },
-        equipo_visitante: { nombre: visitante?.nombre_equipo || "Visitante", logo: formatLogoUrl(visitante?.logo_url) },
+        equipo_local: equipoJson(local, "Local"),
+        equipo_visitante: equipoJson(visitante, "Visitante"),
       };
     });
 

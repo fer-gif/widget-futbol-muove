@@ -10,6 +10,7 @@ import IntegracionPanel from "./_components/IntegracionPanel";
 import NoticiasPanel from "./_components/NoticiasPanel";
 import FixtureImport from "./_components/FixtureImport";
 import SyncAhorafutbol from "./_components/SyncAhorafutbol";
+import TablaConfig from "./_components/TablaConfig";
 import GoleadoresEditor from "@/components/GoleadoresEditor";
 import MetricasPanel from "@/components/MetricasPanel";
 
@@ -1283,6 +1284,9 @@ export default function SuperAdmin() {
             {/* --- SECCIÓN LIGAS Y EQUIPOS --- */}
             {activeTab === "ligas" && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="lg:col-span-2">
+                  <TablaConfig ligas={ligas} onSaved={fetchData} />
+                </div>
                 {/* Crear Liga */}
                 <div className="bg-[#121214] border border-[#27272a] rounded-2xl p-6 space-y-6">
                   <div>

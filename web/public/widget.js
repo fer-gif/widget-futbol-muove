@@ -188,6 +188,7 @@
         zona: "A",
         standings: null, // null = sin pedir, "loading", objeto, o { error }
         scorers: null,
+        verTodos: false, // goleadores: más allá de los 10 primeros
       };
       this.serverOffset = 0;
       this.prevScores = new Map();
@@ -334,7 +335,13 @@
         if (!res.ok || !data.success) throw new Error("sin datos");
         this.state[key] =
           kind === "posiciones"
-            ? { nombre: data.ligaNombre || "", A: data.zonaA || [], B: data.zonaB || [] }
+            ? {
+                nombre: data.ligaNombre || "",
+                A: data.zonaA || [],
+                B: data.zonaB || [],
+                clasifican: Number(data.clasifican) || 0,
+                hasta: data.hasta || null,
+              }
             : { lista: data.goleadores || [] };
       } catch (e) {
         this.state[key] = { error: true };
@@ -506,7 +513,7 @@
         if (ev.target.closest(".brand-link")) this.track("sponsor");
         else if (ev.target.closest(".prode a")) this.track("prode");
       }
-      var t = ev.target.closest ? ev.target.closest("[data-tab],[data-filter],[data-zona],[data-retry],#btn-prev,#btn-next") : null;
+      var t = ev.target.closest ? ev.target.closest("[data-tab],[data-filter],[data-zona],[data-retry],[data-ver-todos],#btn-prev,#btn-next") : null;
       if (!t) return;
       if (t.dataset.retry === undefined) this.track("interaccion");
       if (t.dataset.tab) {
@@ -518,6 +525,9 @@
       } else if (t.dataset.zona) {
         this.state.zona = t.dataset.zona;
         this.renderStandings();
+      } else if (t.dataset.verTodos !== undefined) {
+        this.state.verTodos = !this.state.verTodos;
+        this.renderScorers();
       } else if (t.dataset.retry !== undefined) {
         var kind = t.dataset.retry;
         if (kind === "partidos") {
@@ -636,8 +646,15 @@
           if (el && el.dataset.sig !== self.signature(p)) el.outerHTML = html;
         });
       } else {
-        slider.innerHTML = list.map(function (p) {
-          return self.cardHtml(p, now);
+        // En Próximos y Resultados, si hay más de una fecha, un separador por fecha.
+        var porFecha = s.filtro !== "hoy" && list.some(function (p) {
+          return p.jornada && p.jornada !== list[0].jornada;
+        });
+        slider.innerHTML = list.map(function (p, i) {
+          var sep = porFecha && p.jornada && (i === 0 || list[i - 1].jornada !== p.jornada)
+            ? '<div class="round-sep" aria-hidden="true"><span>' + esc(p.jornada) + "</span></div>"
+            : "";
+          return sep + self.cardHtml(p, now);
         }).join("");
         slider.dataset.keys = keys;
         if (filterChanged) slider.scrollLeft = 0;
@@ -650,7 +667,8 @@
     signature(p) {
       return [
         p.estado_partido, p.goles_local, p.goles_visitante, p.fecha_hora, p.jornada, p.liga_nombre,
-        p.equipo_local.nombre, p.equipo_local.logo, p.equipo_visitante.nombre, p.equipo_visitante.logo,
+        p.equipo_local.nombre, p.equipo_local.corto, p.equipo_local.logo,
+        p.equipo_visitante.nombre, p.equipo_visitante.corto, p.equipo_visitante.logo,
         p.reloj ? p.reloj.periodo + p.reloj.inicio : "",
       ].join("|");
     }
@@ -701,7 +719,7 @@
         var logo = self.cfg && !self.cfg.mostrarEscudos
           ? ""
           : '<img src="' + esc(safeUrl(t.logo) || PLACEHOLDER_LOGO) + '" alt="" loading="lazy" width="40" height="40" />';
-        return '<div class="team">' + logo + '<span class="team-name" title="' + esc(t.nombre) + '">' + esc(t.nombre) + "</span></div>";
+        return '<div class="team">' + logo + '<span class="team-name" title="' + esc(t.nombre) + '">' + esc(t.corto || t.nombre) + "</span></div>";
       };
 
       var label = p.equipo_local.nombre + " " + (hasScore ? gl + " a " + gv : "contra") + " " + p.equipo_visitante.nombre + ", " + aria;
@@ -773,18 +791,51 @@
       }
       var zona = this.state.zona;
       var hasB = st.B.length > 0;
-      var rows = (zona === "B" && hasB ? st.B : st.A)
-        .map(function (r) {
+      var filas = zona === "B" && hasB ? st.B : st.A;
+      var corte = st.clasifican > 0 && st.clasifican < filas.length ? st.clasifican : 0;
+      var formaTxt = { G: "Ganó", E: "Empató", P: "Perdió" };
+      var notas = [];
+      var rows = filas
+        .map(function (r, i) {
           var dg = Number(r.diferenciaGol) || 0;
+          var ajuste = Number(r.ajuste) || 0;
+          if (ajuste) {
+            notas.push(
+              (r.corto || r.equipo) + ": " + (ajuste > 0 ? "+" : "") + ajuste + (Math.abs(ajuste) === 1 ? " punto" : " puntos") +
+              (r.ajusteMotivo ? " (" + r.ajusteMotivo + ")" : "")
+            );
+          }
+          var forma = (r.forma || [])
+            .map(function (x) {
+              return '<i class="f f-' + x + '" title="' + formaTxt[x] + '">' + x + "</i>";
+            })
+            .join("");
+          var cls = [];
+          if (corte && i < corte) cls.push("in");
+          if (corte && i === corte - 1) cls.push("cut");
           return (
-            "<tr><td class=\"pos\">" + esc(r.posicion) + "</td>" +
-            '<td class="team-cell"><div class="tc">' + (r.logo ? '<img src="' + esc(safeUrl(r.logo)) + '" alt="" loading="lazy" width="20" height="20" />' : "") +
-            "<span>" + esc(r.equipo) + "</span></div></td>" +
+            "<tr" + (cls.length ? ' class="' + cls.join(" ") + '"' : "") + '><td class="pos">' + esc(r.posicion) + "</td>" +
+            '<td class="team-cell"><div class="tc" title="' + esc(r.equipo) + '">' +
+            (r.logo ? '<img src="' + esc(safeUrl(r.logo)) + '" alt="" loading="lazy" width="20" height="20" />' : "") +
+            "<span>" + esc(r.corto || r.equipo) + "</span></div></td>" +
             "<td>" + esc(r.jugados) + '</td><td class="hide-sm">' + esc(r.ganados) + '</td><td class="hide-sm">' + esc(r.empatados) +
-            '</td><td class="hide-sm">' + esc(r.perdidos) + "</td><td>" + (dg > 0 ? "+" : "") + esc(dg) + '</td><td class="pts">' + esc(r.puntos) + "</td></tr>"
+            '</td><td class="hide-sm">' + esc(r.perdidos) + "</td><td>" + (dg > 0 ? "+" : "") + esc(dg) + "</td>" +
+            '<td class="pts">' + esc(r.puntos) + (ajuste ? '<sup aria-hidden="true">*</sup>' : "") + "</td>" +
+            '<td class="forma hide-md" aria-label="Últimos partidos: ' +
+            esc((r.forma || []).map(function (x) { return formaTxt[x]; }).join(", ") || "sin partidos") + '">' + forma + "</td></tr>"
           );
         })
         .join("");
+
+      var pie = [];
+      if (corte) pie.push('<span class="legend"><i class="sw" aria-hidden="true"></i>Clasifican ' + corte + "</span>");
+      if (st.hasta) {
+        var dh = toDate(st.hasta);
+        if (dh) pie.push("<span>Partidos jugados hasta: " + esc(fmtDay(dh, this.now()).toLowerCase()) + "</span>");
+      }
+      notas.forEach(function (n) {
+        pie.push("<span>* " + esc(n) + "</span>");
+      });
 
       panel.innerHTML =
         '<div class="panel-head"><span class="panel-title">' + esc(st.nombre) + "</span>" +
@@ -797,8 +848,10 @@
         "</div>" +
         '<div class="table-scroll"><table><thead><tr><th class="pos">#</th><th class="team-cell">Equipo</th>' +
         '<th title="Partidos jugados">PJ</th><th class="hide-sm" title="Ganados">G</th><th class="hide-sm" title="Empatados">E</th>' +
-        '<th class="hide-sm" title="Perdidos">P</th><th title="Diferencia de gol">DG</th><th class="pts">Pts</th></tr></thead>' +
-        "<tbody>" + rows + "</tbody></table></div>";
+        '<th class="hide-sm" title="Perdidos">P</th><th title="Diferencia de gol">DG</th><th class="pts">Pts</th>' +
+        '<th class="forma hide-md" title="Últimos 5 partidos">Últimos</th></tr></thead>' +
+        "<tbody>" + rows + "</tbody></table></div>" +
+        (pie.length ? '<div class="table-foot">' + pie.join("") + "</div>" : "");
     }
 
     renderScorers() {
@@ -815,9 +868,11 @@
           "</p>" + (sc.error ? '<button type="button" class="retry" data-retry="goleadores">Reintentar</button>' : "") + "</div>";
         return;
       }
+      var LIMITE = 10;
+      var lista = this.state.verTodos ? sc.lista : sc.lista.slice(0, LIMITE);
       panel.innerHTML =
         '<ol class="scorers">' +
-        sc.lista.slice(0, 10).map(function (g, i, arr) {
+        lista.map(function (g, i, arr) {
           // Empates de goles comparten puesto (5, 5, 5... en lugar de 5, 6, 7).
           var pos = i + 1;
           while (pos > 1 && Number(arr[pos - 2].goles) === Number(g.goles)) pos--;
@@ -828,7 +883,11 @@
             '<span class="goals">' + esc(g.goles) + "<small> goles</small></span></li>"
           );
         }).join("") +
-        "</ol>";
+        "</ol>" +
+        (sc.lista.length > LIMITE
+          ? '<div class="more"><button type="button" class="retry" data-ver-todos aria-expanded="' + this.state.verTodos + '">' +
+            (this.state.verTodos ? "Ver menos" : "Ver todos (" + sc.lista.length + ")") + "</button></div>"
+          : "");
     }
 
     // -------------------------------------------------------------------------
@@ -878,10 +937,10 @@
       var accentInk = inkFor(c.accent);
       var brandInk = inkFor(c.primary);
       var light =
-        "--bg:#f4f4f5;--surface:#ffffff;--surface-2:#fafafa;--line:#e4e4e7;--text:#18181b;--muted:#52525b;--skeleton:#e4e4e7;";
+        "--bg:#f4f4f5;--surface:#ffffff;--surface-2:#fafafa;--line:#e4e4e7;--text:#18181b;--muted:#52525b;--skeleton:#e4e4e7;--accent-text:var(--text);";
       var dark =
         "--bg:#09090b;--surface:" + c.card + ";--surface-2:#0f0f12;--line:#27272a;--text:" + c.text +
-        ";--muted:" + c.muted + ";--skeleton:#1f1f23;";
+        ";--muted:" + c.muted + ";--skeleton:#1f1f23;--accent-text:var(--accent);";
 
       return [
         ":host{display:block;width:100%;position:relative;box-sizing:border-box;border-radius:20px;padding:3px;overflow:hidden;isolation:isolate;",
@@ -897,7 +956,7 @@
         "animation:spin 3.6s linear infinite}",
         ":host::after{filter:blur(12px);opacity:.85}",
 
-        ".box{position:relative;border-radius:17px;overflow:hidden;background:var(--bg);color:var(--text);",
+        ".box{position:relative;border-radius:17px;overflow:hidden;background:var(--bg);color:var(--text);container-type:inline-size;",
         "box-shadow:inset 0 1px 2px rgba(255,255,255,.12)}",
         ".theme-oscuro{" + dark + "}",
         ".theme-claro{" + light + "}",
@@ -931,12 +990,17 @@
         ".slider{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 40px;padding:14px 40px 16px;",
         "scrollbar-width:none;outline:none;min-height:184px;align-items:stretch}",
         ".slider::-webkit-scrollbar{display:none}",
+        ".round-sep{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 2px}",
+        ".round-sep span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:800;letter-spacing:1px;",
+        "text-transform:uppercase;color:var(--muted);border-left:2px solid var(--accent);padding:0 4px 0 0;white-space:nowrap}",
         ".slider:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}",
-        ".nav{position:absolute;top:0;bottom:0;width:32px;border:0;background:var(--accent);color:var(--accent-ink);display:flex;",
-        "align-items:center;justify-content:center;cursor:pointer;z-index:2;transition:opacity .2s}",
-        ".nav:disabled{opacity:.35;cursor:default}",
+        ".nav{position:absolute;top:50%;width:30px;height:30px;margin-top:-15px;border:1px solid var(--line);border-radius:50%;",
+        "background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;",
+        "box-shadow:0 4px 14px rgba(0,0,0,.35);transition:opacity .2s,background .2s,color .2s}",
+        ".nav:hover:not(:disabled){background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}",
+        ".nav:disabled{opacity:0;pointer-events:none}",
         ".nav svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}",
-        ".nav-prev{left:0}.nav-next{right:0}",
+        ".nav-prev{left:6px}.nav-next{right:6px}",
         ".nav:focus-visible,.chip:focus-visible,.tab:focus-visible,.retry:focus-visible,.seg button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}",
 
         // Tarjeta
@@ -1006,7 +1070,18 @@
         ".tc img{width:20px;height:20px;object-fit:contain;flex-shrink:0}",
         ".pos{width:28px;color:var(--muted);font-weight:700}",
         ".pts{font-weight:900}",
-        "tbody tr:nth-child(-n+4) .pos{color:var(--accent)}",
+        // Clasificados: franja del color del diario (se lee con cualquier color y tema).
+        "tr.in .pos{color:var(--text);box-shadow:inset 3px 0 0 var(--accent)}",
+        "tr.cut td{border-bottom:2px dashed " + withAlpha(c.accent, 0.6) + "}",
+        ".pts sup{color:#ef4444;font-size:9px;margin-left:1px}",
+        ".forma{white-space:nowrap;width:1%}",
+        ".f{display:inline-flex;width:15px;height:15px;border-radius:4px;margin:0 1px;font-style:normal;font-size:8.5px;font-weight:800;",
+        "align-items:center;justify-content:center;color:#fff;vertical-align:middle}",
+        ".f-G{background:#16a34a}.f-E{background:#71717a}.f-P{background:#dc2626}",
+        ".table-foot{display:flex;flex-wrap:wrap;gap:4px 14px;padding:0 16px 12px;color:var(--muted);font-size:10px;font-weight:600}",
+        ".legend{display:inline-flex;align-items:center;gap:6px}",
+        ".sw{display:inline-block;width:14px;border-top:2px dashed " + withAlpha(c.accent, 0.8) + "}",
+        ".more{display:flex;justify-content:center;padding:0 16px 14px}",
 
         // Goleadores
         ".scorers{list-style:none;padding:8px 16px 14px}",
@@ -1023,7 +1098,7 @@
         // Prode y créditos
         ".prode{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 16px;border-top:1px solid var(--line);background:var(--surface-2)}",
         ".prode span{color:var(--muted);font-size:11px;font-weight:700}",
-        ".prode a{color:var(--accent);font-size:11.5px;font-weight:800;text-decoration:none;display:inline-flex;gap:6px;transition:transform .2s}",
+        ".prode a{color:var(--accent-text);font-size:11.5px;font-weight:800;text-decoration:none;display:inline-flex;gap:6px;transition:transform .2s}",
         ".prode a:hover{transform:translateX(3px)}",
         ".credits{display:flex;justify-content:flex-end;padding:8px 16px;border-top:1px solid var(--line)}",
         ".credits a{display:flex;align-items:center;gap:6px;text-decoration:none;opacity:.7}",
@@ -1031,11 +1106,14 @@
         ".credits img{height:9.5px}",
 
         // Celulares
-        "@media (max-width:640px){",
-        ".slider{padding:12px 34px 14px;gap:10px;scroll-padding:0 34px}",
-        ".card{flex-basis:min(82vw,300px)}",
-        ".nav{width:26px}",
+        // Según el ancho del lugar donde está el widget (no el de la pantalla).
+        "@container (max-width:760px){.hide-md{display:none}}",
+        "@container (max-width:520px){",
+        ".slider{padding:12px 16px 14px;gap:10px;scroll-padding:0 16px}",
+        ".card{flex-basis:min(86cqw,300px)}",
+        ".nav{display:none}",
         ".hide-sm{display:none}",
+        ".tc{max-width:150px}",
         ".prode{flex-direction:column;text-align:center}",
         "}",
 

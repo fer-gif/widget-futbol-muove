@@ -194,6 +194,9 @@ export type EquipoLocal = {
   logo_url: string | null;
   ahorafutbol_id?: number | null;
   zona?: string | null;
+  nombre_corto?: string | null;
+  ajuste_puntos?: number | null;
+  ajuste_motivo?: string | null;
 };
 
 export function normalizar(txt: string): string {
@@ -230,15 +233,23 @@ export async function resolverLiga(ligaId?: string | null): Promise<{
   ligaId: string | null;
   nombre: string | null;
   torneoInicio: string | null;
+  clasifican: number | null;
 }> {
   const { data } = await supabase.from("ligas").select("*").order("created_at", { ascending: true });
-  const ligas = (data || []) as { id: string; nombre_liga: string; ahorafutbol_id?: number | null; torneo_inicio?: string | null }[];
+  const ligas = (data || []) as {
+    id: string;
+    nombre_liga: string;
+    ahorafutbol_id?: number | null;
+    torneo_inicio?: string | null;
+    clasifican?: number | null;
+  }[];
   const elegida = ligaId ? ligas.find((l) => l.id === ligaId) : ligas.find((l) => l.ahorafutbol_id) ?? ligas[0];
   return {
     ligaExterna: Number(elegida?.ahorafutbol_id) || AHORAFUTBOL_LIGA_DEFAULT,
     ligaId: elegida?.id ?? null,
     nombre: elegida?.nombre_liga ?? null,
     torneoInicio: elegida?.torneo_inicio ?? null,
+    clasifican: Number(elegida?.clasifican) || null,
   };
 }
 

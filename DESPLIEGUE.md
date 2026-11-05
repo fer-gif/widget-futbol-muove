@@ -4,14 +4,14 @@ Pasos para publicar en producción los cambios de la rama `mejoras-widget`:
 seguridad, widget nuevo, panel en vivo, métricas, posiciones calculadas,
 goleadores editables y la puesta al día con los datos de ahorafutbol.ar.
 
-**El orden importa.** Las migraciones 001, 004, 005 y 006 solo agregan cosas y se
+**El orden importa.** Las migraciones 001, 004, 005, 006 y 007 solo agregan cosas y se
 pueden correr con el código actual. La 002 cierra los permisos de la base y
 **rompe el código viejo**: va al final, cuando el código nuevo ya está publicado
 y probado.
 
 | Paso | Dónde | ¿Se puede deshacer? |
 |---|---|---|
-| 1. Migraciones 001, 004, 005 y 006 | Supabase → SQL Editor | No hace falta: el código actual las ignora |
+| 1. Migraciones 001, 004, 005, 006 y 007 | Supabase → SQL Editor | No hace falta: el código actual las ignora |
 | 2. Variables de entorno | Vercel → Settings → Environment Variables | Sí |
 | 3. Publicar el código | GitHub (`main`) → Vercel | Sí, con "Instant Rollback" en Vercel |
 | 4. Entrar una vez al super-admin | `/super-admin` | No hace falta |
@@ -29,7 +29,7 @@ y probado.
   periodistas tienen que volver a iniciar sesión, y hasta el paso 5 la tabla
   de posiciones está incompleta.
 
-## 1. Migraciones que solo agregan (001, 004, 005, 006)
+## 1. Migraciones que solo agregan (001, 004, 005, 006, 007)
 
 En Supabase → SQL Editor, pegá y ejecutá cada archivo **en este orden**:
 
@@ -45,8 +45,12 @@ En Supabase → SQL Editor, pegá y ejecutá cada archivo **en este orden**:
    posiciones), crea la tabla de goleadores y vincula ligas, equipos y partidos
    con su número en ahorafutbol.ar. Al final muestra los 16 equipos de la Liga
    Necochea con número y zona: no tiene que quedar ninguno vacío.
+5. [`database/migrations/007_tabla_y_nombres.sql`](database/migrations/007_tabla_y_nombres.sql):
+   agrega el nombre corto de cada equipo (el que se ve en las tarjetas y en la
+   tabla del widget), los descuentos de puntos y cuántos clasifican por zona
+   (4 en la Liga Necochea). Al final muestra los 16 equipos con su nombre corto.
 
-Las cuatro se pueden correr más de una vez sin problema.
+Las cinco se pueden correr más de una vez sin problema.
 
 **Comprobación:** esta consulta tiene que mostrar colores y fuentes de cada medio
 (no `{}` vacío):
@@ -186,6 +190,9 @@ el servidor), y los escudos se siguen viendo en el widget.
 
 - **Vos (super-admin):** `/super-admin` pide la contraseña de
   `SUPER_ADMIN_PASSWORD`. La sesión dura 12 horas.
+  - En **Ligas y Equipos → 📊 Tabla de posiciones** se configura el inicio del
+    torneo, cuántos clasifican y, por equipo, la zona, el nombre corto y los
+    puntos que sume o reste la liga (con el motivo, que se ve en el widget).
 - **Periodistas:** en `/admin` eligen su medio y escriben su clave de siempre.
   Desde el panel tienen el botón "🔴 Modo En Vivo (celular)" para cargar goles
   desde la cancha. Después de 5 claves incorrectas se bloquea 15 minutos.
@@ -203,7 +210,7 @@ el servidor), y los escudos se siguen viendo en el widget.
 ## Si algo falla
 
 - **Entre los pasos 3 y 5:** Vercel → Deployments → elegí el deploy anterior →
-  "Instant Rollback". Las migraciones 001, 004, 005 y 006 no afectan al código viejo.
+  "Instant Rollback". Las migraciones 001, 004, 005, 006 y 007 no afectan al código viejo.
 - **Después del paso 6:** no vuelvas al código viejo, porque necesita la base
   abierta. Revisá primero que las variables del paso 2 estén cargadas en
   Production y que el deploy sea posterior a cargarlas. Vercel no aplica
@@ -216,7 +223,8 @@ el servidor), y los escudos se siguen viendo en el widget.
 - **Goleadores dice "No se pudo cargar la tabla de goleadores":** falta la
   migración 006 (tabla `goleadores`).
 - **La tabla de posiciones sale en una sola zona:** a los equipos les falta la
-  zona (columna `equipos.zona`, migración 006).
+  zona. Se carga en Ligas y Equipos → Tabla de posiciones (necesita la 006).
+- **El panel Tabla de posiciones avisa que falta una migración:** correr la 007.
 - **La puesta al día dice "¿cambió el formato?":** ahorafutbol.ar cambió su
   página y hay que ajustar el lector (`web/src/lib/ahorafutbol.ts`). Lo demás
   sigue funcionando: solo afecta a esta carga.
@@ -226,12 +234,11 @@ el servidor), y los escudos se siguen viendo en el widget.
 - `/api/track` (métricas) es público y no limita la cantidad de eventos por
   visitante. Los números sirven para ver tendencias. Si se van a usar para
   cobrar a sponsors, conviene sumar un control de abuso.
-- La tabla de posiciones se calcula con los resultados: no refleja sanciones
-  ni descuentos de puntos que decida la liga. Tampoco cuenta las rondas
-  finales (semis, final, reducido).
-- Al empezar un torneo nuevo hay que actualizar `ligas.torneo_inicio` (y la
-  zona de los equipos si cambia); si no, se suman los partidos del torneo
-  anterior.
+- La tabla de posiciones no cuenta las rondas finales (semis, final, reducido).
+  Las sanciones de la liga se cargan a mano como descuento de puntos.
+- Al empezar un torneo nuevo hay que cambiar el inicio del torneo (y la zona
+  de los equipos si cambia) en Ligas y Equipos → Tabla de posiciones; si no,
+  se suman los partidos del torneo anterior.
 - Las zonas se tomaron de la página de la liga en ahorafutbol.ar, que no
   coincide con la página del torneo para Ministerio y Gimnasia. Confirmar cuál
   es la correcta.

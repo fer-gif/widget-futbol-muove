@@ -6,6 +6,9 @@
 // - No cuentan las rondas finales (semis, final, reducido, etc.).
 // - Si el mismo partido está cargado dos veces (por ejemplo, por dos diarios),
 //   cuenta una sola vez.
+// - Suma o resta los puntos de equipos.ajuste_puntos (sanciones, migración 007).
+// - Devuelve también los últimos 5 resultados de cada equipo y hasta qué día
+//   llegan los partidos contados.
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase-server";
 import { equiposDeLiga, resolverLiga } from "@/lib/ahorafutbol";
@@ -22,6 +25,8 @@ const headers = {
 export type EquipoTabla = {
   posicion: number;
   equipo: string;
+  /** Nombre para lugares chicos (equipos.nombre_corto). */
+  corto?: string;
   equipo_id?: string | null;
   logo?: string;
   jugados: number;
@@ -33,6 +38,11 @@ export type EquipoTabla = {
   diferenciaGol: number;
   puntos: number;
   zona: string;
+  /** Últimos resultados, del más viejo al más reciente: G, E o P. */
+  forma?: ("G" | "E" | "P")[];
+  /** Puntos sumados o restados por la liga, ya incluidos en `puntos`. */
+  ajuste?: number;
+  ajusteMotivo?: string | null;
 };
 
 const RONDA_FINAL = /semi|final|cuarto|octavo|reducido|promoci|play\s*-?\s*off|repechaje|desempate/i;
@@ -62,15 +72,21 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     const filas = new Map<string, EquipoTabla>();
+    const historial = new Map<string, { t: number; r: "G" | "E" | "P" }[]>();
     for (const e of equipos) {
+      const ajuste = Number(e.ajuste_puntos) || 0;
+      historial.set(e.id, []);
       filas.set(e.id, {
         posicion: 0,
         equipo: e.nombre_equipo,
+        corto: e.nombre_corto?.trim() || e.nombre_equipo,
         equipo_id: e.id,
         logo: e.logo_url || "",
         jugados: 0, ganados: 0, empatados: 0, perdidos: 0,
-        golesFavor: 0, golesContra: 0, diferenciaGol: 0, puntos: 0,
+        golesFavor: 0, golesContra: 0, diferenciaGol: 0, puntos: ajuste,
         zona: (e.zona || "A").toUpperCase(),
+        ajuste,
+        ajusteMotivo: ajuste ? e.ajuste_motivo?.trim() || null : null,
       });
     }
 
@@ -84,24 +100,33 @@ export async function GET(request: NextRequest) {
       if (!previo || (previo.cliente_id && !p.cliente_id)) unicos.set(clave, p);
     }
 
+    let hasta = 0;
     for (const p of unicos.values()) {
       const gl = Number(p.goles_local) || 0;
       const gv = Number(p.goles_visitante) || 0;
+      const t = Date.parse(p.fecha_hora) || 0;
       for (const [id, a, b] of [[p.equipo_local_id, gl, gv], [p.equipo_visitante_id, gv, gl]] as const) {
         const f = filas.get(id);
         if (!f) continue;
+        hasta = Math.max(hasta, t);
         f.jugados++;
         f.golesFavor += a;
         f.golesContra += b;
         if (a > b) { f.ganados++; f.puntos += 3; }
         else if (a === b) { f.empatados++; f.puntos += 1; }
         else f.perdidos++;
+        historial.get(id)!.push({ t, r: a > b ? "G" : a === b ? "E" : "P" });
       }
     }
 
     const porZona = new Map<string, EquipoTabla[]>();
     for (const f of filas.values()) {
       f.diferenciaGol = f.golesFavor - f.golesContra;
+      f.forma = historial
+        .get(f.equipo_id!)!
+        .sort((a, b) => a.t - b.t)
+        .slice(-5)
+        .map((h) => h.r);
       porZona.set(f.zona, [...(porZona.get(f.zona) || []), f]);
     }
     const zonas = [...porZona.keys()].sort().map((z) =>
@@ -117,6 +142,10 @@ export async function GET(request: NextRequest) {
         ligaNombre: liga.nombre || "Liga Necochea de Fútbol",
         zonaA: zonas[0] || [],
         zonaB: zonas[1] || [],
+        // Cuántos de cada zona clasifican (para marcar la línea de corte).
+        clasifican: liga.clasifican,
+        // Día del último partido contado.
+        hasta: hasta ? new Date(hasta).toISOString() : null,
       },
       { status: 200, headers }
     );
